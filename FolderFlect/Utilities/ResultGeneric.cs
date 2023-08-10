@@ -1,17 +1,26 @@
 ﻿namespace FolderFlect.Utilities
 {
-    public class Result<T> : Result
+    public class Result<T>
     {
         public T Value { get; }
+        public bool IsSuccess { get; }
+        public string Message { get; }
 
-        public Result(T value, bool isSuccess, string message)
-            : base(isSuccess, message)
+        public Result(T value)
         {
             Value = value;
+            IsSuccess = true;
+            Message = string.Empty;
         }
 
-        public static Result<T> Success(T value) => new Result<T>(value, true, string.Empty);
-        public static Result<T> Success(T value, string message) => new Result<T>(value, true, message);
-        public static Result<T> Fail(string message) => new Result<T>(default, false, message);
+        public Result(string message)
+        {
+            Value = default;
+            IsSuccess = false;
+            Message = message;
+        }
+
+        public static Result<T> Success(T value) => new Result<T>(value);
+        public static Result<T> Fail(string message) => new Result<T>(message);
     }
 }

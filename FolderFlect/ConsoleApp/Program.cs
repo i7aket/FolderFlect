@@ -1,12 +1,16 @@
 ﻿using FolderFlect.Config;
+using FolderFlect.Extensions;
 using FolderFlect.Helpers;
-using FolderFlect.Services;
+using FolderFlect.Services.IServices;
+using Microsoft.Extensions.DependencyInjection;
+using NLog;
+using System;
 
 public class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine($"{DateTime.Now}: The program has started.");
+        Console.WriteLine($"{DateTime.Now}: Folder Reflect has started.");
 
         var loadConfigurationResult = ConfigurationLoader.LoadConfiguration(args);
 
@@ -19,10 +23,11 @@ public class Program
 
         var configuration = loadConfigurationResult.Value;
 
-        //var configuration = new AppConfig(@"C:\FolderFlect\ToReplicate", @"C:\FolderFlect\Reflection", 1, @"C:\FolderFlect\log.txt");
+        var serviceProvider = new ServiceCollection()
+            .AddFolderFlectServices(configuration)
+            .BuildServiceProvider();
 
-        var synchronisationManagerService = new SynchronisationManagerService(configuration);
-
-        synchronisationManagerService.RunFolderSynchronisation(); 
+        var synchronisationManagerService = serviceProvider.GetRequiredService<ISynchronisationManagerService>();
+        synchronisationManagerService.RunFolderSynchronisation();
     }
 }

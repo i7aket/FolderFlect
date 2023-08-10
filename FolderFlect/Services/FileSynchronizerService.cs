@@ -1,5 +1,5 @@
 ﻿using FolderFlect.Config;
-using FolderFlect.Logging;
+using NLog;
 using FolderFlect.Models;
 using FolderFlect.Utilities;
 using System;
@@ -19,97 +19,90 @@ public class FileSynchronizerService : IFileSynchronizerService
         _replicaPath = appConfig.ReplicaPath;
     }
 
-    public Result DeleteFilesFromDestination(List<string> pathsToDelete)
+    public Result SyncFiles(FilesToSyncSet filesToSyncSet)
+    {
+        DeleteFilesFromDestination(filesToSyncSet.FilesToDelete);
+        DeleteDirectories(filesToSyncSet.DirectoriesToDelete);
+        CreateDirectories(filesToSyncSet.DirectoriesToCreate);
+        CopyFilesToDestination(filesToSyncSet.FilesToCopy);
+        CopyFilesToDestination(filesToSyncSet.FilesForUpdate);
+        UpdateFileAttributes(filesToSyncSet.FilesForAttributesUpdate);
+
+        return Result.Success();
+    }
+
+    private void DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
+
     {
         foreach (var relativePath in pathsToDelete)
         {
-            var fullPathToDelete = Path.Combine(_replicaPath, relativePath);
-            if (File.Exists(fullPathToDelete))
+            try
             {
-                var file = new FileInfo(fullPathToDelete);
-                if (file.IsReadOnly)
+                var fullPathToDelete = Path.Combine(_replicaPath, relativePath);
+                if (File.Exists(fullPathToDelete))
                 {
-                    file.IsReadOnly = false;
-                }
-
-                try
-                {
+                    var file = new FileInfo(fullPathToDelete);
+                    SetFileAsWritable(file);
                     file.Delete();
-                    _logger.Log($"File {fullPathToDelete} successfully deleted.");
-                }
-                catch (Exception e)
-                {
-                    _logger.Log($"Error deleting file {fullPathToDelete}. Error: {e.Message}");
-                    return Result.Fail($"Error deleting file {fullPathToDelete}. Error: {e.Message}");
+                    _logger.Info($"File {fullPathToDelete} successfully deleted.");
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error deleting file {relativePath}.");
+            }
         }
-
-        return Result.Success();
     }
 
-    public Result CopyFilesToDestination(List<string> pathsToCopy)
+    private void CopyFilesToDestination(IEnumerable<string> pathsToCopy)
     {
         foreach (var relativePath in pathsToCopy)
         {
-            var sourceFilePath = Path.Combine(_sourcePath, relativePath);
-            var destinationFilePath = Path.Combine(_replicaPath, relativePath);
-
-            if (File.Exists(destinationFilePath))
+            try
             {
-                var destFile = new FileInfo(destinationFilePath);
-                if (destFile.IsReadOnly)
+                var sourceFilePath = Path.Combine(_sourcePath, relativePath);
+                var destinationFilePath = Path.Combine(_replicaPath, relativePath);
+
+                if (File.Exists(destinationFilePath))
                 {
-                    destFile.IsReadOnly = false;
+                    var destFile = new FileInfo(destinationFilePath);
+                    SetFileAsWritable(destFile);
+                }
+
+                if (File.Exists(sourceFilePath))
+                {
+                    var destinationFolder = Path.GetDirectoryName(destinationFilePath);
+                    Directory.CreateDirectory(destinationFolder);
+
+                    File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
+                    File.SetAttributes(destinationFilePath, File.GetAttributes(sourceFilePath));
+                    _logger.Info($"File {sourceFilePath} successfully copied to {destinationFilePath}.");
                 }
             }
-
-            if (File.Exists(sourceFilePath))
+            catch (Exception ex)
             {
-                string destinationFolder = Path.GetDirectoryName(destinationFilePath);
-                if (!Directory.Exists(destinationFolder))
-                {
-                    Directory.CreateDirectory(destinationFolder);
-                }
-
-                try
-                {
-                    File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
-
-                    // Copying the file attributes
-                    File.SetAttributes(destinationFilePath, File.GetAttributes(sourceFilePath));
-
-                    _logger.Log($"File {sourceFilePath} successfully copied to {destinationFilePath}.");
-                }
-                catch (Exception e)
-                {
-                    _logger.Log($"Error copying file {sourceFilePath} to {destinationFilePath}. Error: {e.Message}");
-                    return Result.Fail($"Error copying file {sourceFilePath} to {destinationFilePath}. Error: {e.Message}");
-                }
+                _logger.Error(ex, $"Error copying file {relativePath}.");
             }
         }
-
-        return Result.Success();
     }
 
-
-    public Result UpdateFileAttributes(List<string> pathsToUpdate)
+    private void UpdateFileAttributes(List<string> pathsToUpdate)
     {
         foreach (var relativePath in pathsToUpdate)
         {
-            var sourceFilePath = Path.Combine(_sourcePath, relativePath);
-            var destinationFilePath = Path.Combine(_replicaPath, relativePath);
-
-            if (File.Exists(sourceFilePath) && File.Exists(destinationFilePath))
+            try
             {
-                var destFileInfo = new FileInfo(destinationFilePath);
-                if (destFileInfo.IsReadOnly)
-                {
-                    destFileInfo.IsReadOnly = false;
-                }
+                var sourceFilePath = Path.Combine(_sourcePath, relativePath);
+                var destinationFilePath = Path.Combine(_replicaPath, relativePath);
 
-                try
+                if (File.Exists(sourceFilePath) && File.Exists(destinationFilePath))
                 {
+                    var destFileInfo = new FileInfo(destinationFilePath);
+                    if (destFileInfo.IsReadOnly)
+                    {
+                        destFileInfo.IsReadOnly = false;
+                    }
+
                     var sourceFileInfo = new FileInfo(sourceFilePath);
 
                     destFileInfo.CreationTime = sourceFileInfo.CreationTime;
@@ -121,16 +114,61 @@ public class FileSynchronizerService : IFileSynchronizerService
                         destFileInfo.Attributes = sourceFileInfo.Attributes;
                     }
 
-                    _logger.Log($"Attributes of file {destinationFilePath} successfully updated.");
-                }
-                catch (Exception e)
-                {
-                    _logger.Log($"Error updating attributes for file {destinationFilePath}. Error: {e.Message}");
-                    return Result.Fail($"Error updating attributes for file {destinationFilePath}. Error: {e.Message}");
+                    _logger.Info($"Attributes of file {destinationFilePath} successfully updated.");
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error updating attributes for file {relativePath}.");
+            }
         }
+    }
 
-        return Result.Success();
+    private void DeleteDirectories(List<string> directoriesToDelete)
+    {
+        foreach (var relativeDirectoryPath in directoriesToDelete)
+        {
+            try
+            {
+                var fullPathToDelete = Path.Combine(_replicaPath, relativeDirectoryPath);
+
+                if (Directory.Exists(fullPathToDelete))
+                {
+                    Directory.Delete(fullPathToDelete, recursive: true);
+                    _logger.Info($"Deleted directory: {fullPathToDelete}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error deleting directory {relativeDirectoryPath}.");
+            }
+        }
+    }
+
+    private void CreateDirectories(List<string> directoriesToCreate)
+    {
+        foreach (var relativeDirectoryPath in directoriesToCreate)
+        {
+            try
+            {
+                var fullPathToCreate = Path.Combine(_replicaPath, relativeDirectoryPath);
+
+                if (!Directory.Exists(fullPathToCreate))
+                {
+                    Directory.CreateDirectory(fullPathToCreate);
+                    _logger.Info($"Created directory: {fullPathToCreate}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error creating directory {relativeDirectoryPath}.");
+            }
+        }
+    }
+
+    private void SetFileAsWritable(FileInfo file)
+    {
+        if (file.IsReadOnly)
+            file.IsReadOnly = false;
     }
 }

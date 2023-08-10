@@ -1,12 +1,12 @@
 ﻿using FolderFlect.Config;
-using FolderFlect.Logging;
+using NLog;
 using System;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Timers;
+using Timer = System.Timers.Timer;
 
 public class SchedulerService : ISchedulerService
 {
-    private CancellationTokenSource _cancellationTokenSource;
+    private Timer _timer;
     private readonly ILogger _logger;
     private readonly int _syncIntervalInMilliseconds;
 
@@ -17,47 +17,30 @@ public class SchedulerService : ISchedulerService
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _syncIntervalInMilliseconds = appConfig.SyncInterval * 1000;
+
+        _timer = new Timer(_syncIntervalInMilliseconds);
+        _timer.Elapsed += (sender, e) => ExecuteScheduledTask();
+    }
+
+    private void ExecuteScheduledTask()
+    {
+        try
+        {
+            OnExecute?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Error executing scheduled task: {ex.Message}");
+        }
     }
 
     public void Start()
     {
-        _cancellationTokenSource = new CancellationTokenSource();
-
-        Task.Run(async () =>
-        {
-            while (!_cancellationTokenSource.Token.IsCancellationRequested)
-            {
-                try
-                {
-                    OnExecute?.Invoke();
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error($"Error executing scheduled task: {ex.Message}");
-                }
-
-                try
-                {
-                    await Task.Delay(_syncIntervalInMilliseconds, _cancellationTokenSource.Token);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Expected exception when cancellation token is triggered
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error($"Error during task delay: {ex.Message}");
-                }
-            }
-        });
+        _timer.Start();
     }
 
     public void Stop()
     {
-        if (_cancellationTokenSource != null)
-        {
-            _cancellationTokenSource.Cancel();
-            _cancellationTokenSource = null;
-        }
+        _timer.Stop();
     }
 }

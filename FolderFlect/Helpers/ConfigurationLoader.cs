@@ -98,7 +98,7 @@ namespace FolderFlect.Helpers
             }
 
             var config = new AppConfig(sourcePath, replicaPath, syncInterval, logFilePath);
-            return Result<AppConfig>.Success(config, message.ToString());
+            return Result<AppConfig>.Success(config);
         }
     }
 }
