@@ -21,15 +21,24 @@ public class FileSynchronizerService : IFileSynchronizerService
 
     public Result SyncFiles(FilesToSyncSet filesToSyncSet)
     {
-        DeleteFilesFromDestination(filesToSyncSet.FilesToDelete);
-        DeleteDirectories(filesToSyncSet.DirectoriesToDelete);
-        CreateDirectories(filesToSyncSet.DirectoriesToCreate);
-        CopyFilesToDestination(filesToSyncSet.FilesToCopy);
-        CopyFilesToDestination(filesToSyncSet.FilesForUpdate);
-        UpdateFileAttributes(filesToSyncSet.FilesForAttributesUpdate);
+        try
+        {
+            DeleteFilesFromDestination(filesToSyncSet.FilesToDelete);
+            DeleteDirectories(filesToSyncSet.DirectoriesToDelete);
+            CreateDirectories(filesToSyncSet.DirectoriesToCreate);
+            CopyFilesToDestination(filesToSyncSet.FilesToCopy);
+            CopyFilesToDestination(filesToSyncSet.FilesForUpdate);
+            UpdateFileAttributes(filesToSyncSet.FilesForAttributesUpdate);
 
-        return Result.Success();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error occurred during file synchronization.");
+            return Result.Fail("Error occurred during file synchronization: " + ex.Message);
+        }
     }
+
 
     private void DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
 
@@ -172,3 +181,4 @@ public class FileSynchronizerService : IFileSynchronizerService
             file.IsReadOnly = false;
     }
 }
+

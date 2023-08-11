@@ -5,6 +5,7 @@ using FolderFlect.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 public class FileComparerService : IFileComparerService
 {
@@ -38,7 +39,6 @@ public class FileComparerService : IFileComparerService
             return Result<FilesToSyncSet>.Fail($"Error during files synchronization: {ex.Message}");
         }
     }
-
 
     private List<string> GetIntersectingFiles(DirectoryFileSet fileSet)
     {
@@ -90,5 +90,4 @@ public class FileComparerService : IFileComparerService
     {
         return fileSet.SourceFiles.Keys.Except(fileSet.DestenationFiles.Keys).ToList();
     }
-
 }

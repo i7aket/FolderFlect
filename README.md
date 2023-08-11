@@ -1,1 +1,22 @@
-# FolderFlect
+# FolderFlect - Configuration Loader
+
+FolderFlect's Configuration Loader is a utility tool designed to read configurations for folder synchronization. The primary purpose is to ensure that your source and replica directories are always in sync.
+
+## How to Use
+
+To use the Configuration Loader, you need to provide specific arguments when invoking the application. Below are the required arguments:
+
+- **-source**: Specifies the path to the source directory.
+- **-replica**: Specifies the path to the replica directory.
+- **-interval**: Defines the synchronization interval in seconds.
+- **-log**: Specifies the path to save the log file.
+
+### Example
+
+FolderFlect -source C:\path\to\sourceFolder -replica D:\path\to\replicaFolder -interval 60 -log C:\path\to\log.txt
+
+This command will set up FolderFlect to synchronize the source directory at `C:\path\to\sourceFolder` with the replica at `D:\path\to\replica\sourceFolder`, doing so every 60 seconds, and logging activities to `C:\path\to\log.txt`.
+
+## Warnings
+
+- **Administrator Rights**: When planning to synchronize folders in the root directory or system folders, you MUST run FolderFlect with administrator rights.

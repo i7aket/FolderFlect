@@ -10,8 +10,16 @@ public class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine($"{DateTime.Now}: Folder Reflect has started.");
+        Console.WriteLine($"{DateTime.Now}: The FolderFlect has started.");
 
+/*        args = new string[]
+        {
+            "-source", @"C:\FolderFlect\ToReplicate",
+            "-replica", @"C:\FolderFlect\Reflection",
+            "-interval", "1",
+            "-log", @"C:\FolderFlect\log.txt"
+        };*/
+        
         var loadConfigurationResult = ConfigurationLoader.LoadConfiguration(args);
 
         if (!loadConfigurationResult.IsSuccess)

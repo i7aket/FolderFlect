@@ -40,24 +40,31 @@ namespace FolderFlect.Services
             var directoryFileSetResult = _filesScannerService.GetAllRelativeFilePaths();
             if (!directoryFileSetResult.IsSuccess)
             {
+                _logger.Error(directoryFileSetResult.Message);
                 return;
             }
 
             var filesToSyncSetResult = _fileComparerService.GetFilesToSync(directoryFileSetResult.Value);
             if (!filesToSyncSetResult.IsSuccess)
             {
+                _logger.Error(filesToSyncSetResult.Message);
                 return;
             }
 
-            _fileSynchronizerService.SyncFiles(filesToSyncSetResult.Value);
+
+            var syncFilesResult = _fileSynchronizerService.SyncFiles(filesToSyncSetResult.Value);
+            if (!syncFilesResult.IsSuccess)
+            {
+                _logger.Error(syncFilesResult.Message);
+                return;
+            }
 
         }
 
         public void RunFolderSynchronisation()
         {
             _scheduler.Start();
-            _logger.Info($"Synchronization will be performed every {_config.SyncInterval} seconds." +
-                         $"\nPress any key to stop...");
+            _logger.Info(_config + $"\nPress any key to stop...");
             Console.ReadLine();
             _scheduler.Stop();
         }
