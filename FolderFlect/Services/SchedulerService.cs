@@ -1,4 +1,5 @@
 ﻿using FolderFlect.Config;
+using FolderFlect.Utilities;
 using NLog;
 using System;
 using System.Timers;
@@ -9,6 +10,8 @@ public class SchedulerService : ISchedulerService
     private Timer _timer;
     private readonly ILogger _logger;
     private readonly int _syncIntervalInMilliseconds;
+    private readonly object _syncLock = new object();
+    private bool _isTaskRunning = false;
 
     public delegate void TaskToRunHandler();
     public event TaskToRunHandler OnExecute;
@@ -20,27 +23,55 @@ public class SchedulerService : ISchedulerService
 
         _timer = new Timer(_syncIntervalInMilliseconds);
         _timer.Elapsed += (sender, e) => ExecuteScheduledTask();
+
+        _logger.Debug($"SchedulerService constructed with sync interval: {TimeHelper.GetInterval(appConfig.SyncInterval)}.");
+
     }
 
     private void ExecuteScheduledTask()
     {
-        try
+        _logger.Debug("Attempting to execute scheduled task...");
+
+        lock (_syncLock)
         {
-            OnExecute?.Invoke();
+            if (_isTaskRunning)
+            {
+                _logger.Debug("The previous synchronization is still in progress.");
+                return;
+            }
+
+            _isTaskRunning = true;
+
+            try
+            {
+                OnExecute?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Error executing scheduled task: {ex.Message}");
+            }
+            finally
+            {
+                _isTaskRunning = false;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.Error($"Error executing scheduled task: {ex.Message}");
-        }
+
+        _logger.Debug("Finished executing scheduled task.");
+
     }
+
 
     public void Start()
     {
         _timer.Start();
+        _logger.Debug("Scheduler timer started.");
+
     }
 
     public void Stop()
     {
         _timer.Stop();
+        _logger.Debug("Scheduler timer stopped.");
+
     }
 }

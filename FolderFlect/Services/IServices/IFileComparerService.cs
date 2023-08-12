@@ -3,5 +3,5 @@ using FolderFlect.Utilities;
 
 public interface IFileComparerService
 {
-    Result<FilesToSyncSet> GetFilesToSync(DirectoryFileSet fileSet);
+    Result<FilesToSyncSetByMD5> GetFilesToSyncGroupedByMD5AndDirectoryPaths(MD5FileSet fileSet);
 }

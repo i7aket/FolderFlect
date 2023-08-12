@@ -3,5 +3,6 @@ using FolderFlect.Utilities;
 
 public interface IFileSynchronizerService
 {
-    Result SyncFiles(FilesToSyncSet filesToSyncSet);
+    void MoveFiles(List<(string, string)> filesToMove);
+    Result SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet);
 }

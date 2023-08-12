@@ -13,4 +13,5 @@ namespace FolderFlect.Constants
         public const string Interval = "-interval";
         public const string Log = "-log";
     }
+
 }

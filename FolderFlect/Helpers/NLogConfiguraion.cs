@@ -13,12 +13,20 @@ namespace FolderFlect.Helpers
         public static void ConfigureNLog(AppConfig appConfig)
         {
             var logFilePath = appConfig.LogFilePath;
+            var debugLogFilePath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(logFilePath), "debuglog.txt");
+
             var config = new NLog.Config.LoggingConfiguration();
 
-            // Targets where to log to: Console and File
+            // Targets where to log to: Console, Main log file, and Debug log file
             var logfile = new NLog.Targets.FileTarget("logfile")
             {
                 FileName = logFilePath,
+                Layout = "${longdate} ${uppercase:${level}} ${message}"
+            };
+
+            var debugfile = new NLog.Targets.FileTarget("debugfile")
+            {
+                FileName = debugLogFilePath,
                 Layout = "${longdate} ${uppercase:${level}} ${message}"
             };
 
@@ -28,11 +36,15 @@ namespace FolderFlect.Helpers
             };
 
             // Rules for mapping loggers to targets
-            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
-            config.AddRule(LogLevel.Debug, LogLevel.Fatal, logfile);
+            config.AddRule(LogLevel.Info, LogLevel.Info, logconsole); // Info to Console
+            config.AddRule(LogLevel.Info, LogLevel.Info, logfile);    // Info to Main log file
+
+            config.AddRule(LogLevel.Debug, LogLevel.Debug, debugfile); // Debug to Debug log file
+            config.AddRule(LogLevel.Error, LogLevel.Error, debugfile); // Error to Debug log file
 
             // Apply config
             NLog.LogManager.Configuration = config;
+
         }
 
     }

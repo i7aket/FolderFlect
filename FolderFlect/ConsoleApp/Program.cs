@@ -19,7 +19,7 @@ public class Program
             "-interval", "1",
             "-log", @"C:\FolderFlect\log.txt"
         };*/
-        
+
         var loadConfigurationResult = ConfigurationLoader.LoadConfiguration(args);
 
         if (!loadConfigurationResult.IsSuccess)
