@@ -16,7 +16,6 @@ namespace FolderFlect.Services
     {
         #region Fields and Constructor
 
-
         private readonly ILogger _logger;
         private readonly string _sourcePath;
         private readonly string _replicaPath;
@@ -31,16 +30,15 @@ namespace FolderFlect.Services
 
         #endregion
 
-
         public Result<MD5FileSet> RetrieveFilesGroupedByMD5AndDirectoryPaths()
         {
             _logger.Debug("Starting RetrieveFilesGroupedByMD5AndDirectoryPaths");
             try
             {
-                var sourceFilesByMD5Hash = ScanDirectoryForFilesByMD5Hash(_sourcePath, Source_Descriptor);
-                var destForFilesByMD5Hash = ScanDirectoryForFilesByMD5Hash(_replicaPath, Destination_Descriptor);
-                var sourceDirectoriesByRelativePath = ScanDirectoriesByRelativePath(_sourcePath, Source_Descriptor);
-                var destDirectoriesByRelativePath = ScanDirectoriesByRelativePath(_replicaPath, Destination_Descriptor);
+                var sourceFilesByMD5Hash = ScanDirectory(_sourcePath, Source_Descriptor, FilesByMD5HashProcessor);
+                var destForFilesByMD5Hash = ScanDirectory(_replicaPath, Destination_Descriptor, FilesByMD5HashProcessor);
+                var sourceDirectoriesByRelativePath = ScanDirectory(_sourcePath, Source_Descriptor, DirectoriesByRelativePathProcessor);
+                var destDirectoriesByRelativePath = ScanDirectory(_replicaPath, Destination_Descriptor, DirectoriesByRelativePathProcessor);
 
                 var fileSet = new MD5FileSet(
                     sourceFilesByMD5Hash,
@@ -54,40 +52,33 @@ namespace FolderFlect.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error retrieving all relative file paths.");
-                return Result<MD5FileSet>.Fail("Error retrieving all relative file paths.");
+                string Error = "Error retrieving all relative file paths.";
+                _logger.Error(ex, Error);
+                return Result<MD5FileSet>.Fail(Error);
             }
         }
 
-
-        private void EnsureDirectoryExists(string directoryPath)
+        private TResult ScanDirectory<TResult>(string directoryPath, string descriptor, Func<string, TResult> pathProcessor)
         {
-
-            if (!Directory.Exists(directoryPath))
-            {
-                try
-                {
-                    Directory.CreateDirectory(directoryPath);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, $"Failed to create directory at: {directoryPath}");
-                    throw; 
-                }
-            }
-
+            _logger.Debug($"Starting scanning for {descriptor} at {directoryPath}");
+            FileSyncHelper.EnsureDirectoryExists(directoryPath);
+            return pathProcessor(directoryPath);
         }
 
-
-        private Dictionary<string, string> ScanDirectoriesByRelativePath(string directoryPath, string descriptor)
+        private Dictionary<string, string> DirectoriesByRelativePathProcessor(string directoryPath)
         {
-            _logger.Debug($"Starting scanning for {descriptor} directories by relative path at {directoryPath}");
-
-            EnsureDirectoryExists(directoryPath);
             var directories = Directory.GetDirectories(directoryPath, "*", SearchOption.AllDirectories)
-                                       .ToDictionary(dir => PathHelper.GetRelativePath(directoryPath, dir), dir => dir);
-
+                                       .ToDictionary(dir => FileSyncHelper.GetRelativePath(directoryPath, dir), dir => dir);
             return directories;
+        }
+
+        private ILookup<string, FileModel> FilesByMD5HashProcessor(string directoryPath)
+        {
+            var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories)
+                                 .Select(file => CreateFileModel(file, directoryPath))
+                                 .Where(fileModel => fileModel != null)
+                                 .ToLookup(fileModel => fileModel.MD5Hash);
+            return files;
         }
 
         private FileModel CreateFileModel(string absoluteFilePath, string baseDirectory)
@@ -99,9 +90,9 @@ namespace FolderFlect.Services
                 {
                     FileName = fileInfo.Name,
                     FilePath = absoluteFilePath,
-                    FileReletivePath = PathHelper.GetRelativePath(baseDirectory, absoluteFilePath),
+                    FileReletivePath = FileSyncHelper.GetRelativePath(baseDirectory, absoluteFilePath),
                     FileSize = fileInfo.Length,
-                    MD5Hash = CalculateMD5(absoluteFilePath),
+                    MD5Hash = FileSyncHelper.CalculateMD5(absoluteFilePath),
                     CreationTime = fileInfo.CreationTime,
                     LastModifiedTime = fileInfo.LastWriteTime,
                     LastAccessTime = fileInfo.LastAccessTime,
@@ -115,41 +106,5 @@ namespace FolderFlect.Services
                 return null;
             }
         }
-
-        private string CalculateMD5(string filePath)
-        {
-            try
-            {
-                using (var md5 = MD5.Create())
-                {
-                    using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    {
-                        var hash = md5.ComputeHash(fileStream);
-                        var result = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                        return result;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in CalculateMD5 for filePath: {filePath}");
-                throw; 
-            }
-        }
-
-
-        private ILookup<string, FileModel> ScanDirectoryForFilesByMD5Hash(string directoryPath, string descriptor)
-        {
-            _logger.Debug($"Starting scanning for {descriptor} files by MD5 hash at {directoryPath}");
-
-            EnsureDirectoryExists(directoryPath);
-            var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories)
-                                 .Select(file => CreateFileModel(file, directoryPath))
-                                 .Where(fileModel => fileModel != null)
-                                 .ToLookup(fileModel => fileModel.MD5Hash);
-
-            return files;
-        }
-
     }
 }

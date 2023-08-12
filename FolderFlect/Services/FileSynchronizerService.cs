@@ -2,6 +2,11 @@
 using NLog;
 using FolderFlect.Models;
 using FolderFlect.Utilities;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using FolderFlect.Services;
+using FolderFlect.Services.IServices;
 
 public class FileSynchronizerService : IFileSynchronizerService
 {
@@ -10,14 +15,15 @@ public class FileSynchronizerService : IFileSynchronizerService
     private readonly ILogger _logger;
     private readonly string _sourcePath;
     private readonly string _replicaPath;
+    private readonly IFileProcessorService _fileProcessor;
 
-    public FileSynchronizerService(ILogger logger, AppConfig appConfig)
+    public FileSynchronizerService(ILogger logger, AppConfig appConfig, IFileProcessorService fileProcessorService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sourcePath = appConfig.SourcePath;
         _replicaPath = appConfig.ReplicaPath;
+        _fileProcessor = fileProcessorService;
         _logger.Debug("FileSynchronizerService initialized with source and replica paths.");
-
     }
 
     #endregion
@@ -26,176 +32,124 @@ public class FileSynchronizerService : IFileSynchronizerService
     {
         _logger.Debug("Starting SyncFilesByMD5...");
 
+        List<OperationFileProcessorResult> results = new List<OperationFileProcessorResult>();
+
         try
         {
-            CreateDirectories(filesToSyncSet.DirectoriesToCreate);
-            MoveFiles(filesToSyncSet.FilesToMove);
-            CopyFilesToDestination(filesToSyncSet.FilesToCopy);
-            DeleteFilesFromDestination(filesToSyncSet.FilesToDelete);
-            DeleteDirectories(filesToSyncSet.DirectoriesToDelete);
-            _logger.Debug("Successfully synced files by MD5.");
+            results.Add(CreateDirectories(filesToSyncSet.DirectoriesToCreate));
+            results.Add(MoveFiles(filesToSyncSet.FilesToMove));
+            results.Add(CopyFilesToDestination(filesToSyncSet.FilesToCopy));
+            results.Add(DeleteFilesFromDestination(filesToSyncSet.FilesToDelete));
+            results.Add(DeleteDirectories(filesToSyncSet.DirectoriesToDelete));
 
+            LogAllResults(results);
+
+            if (AnyFailures(results))
+            {
+                _logger.Warn("File synchronization completed with issues.");
+                return Result.Success();
+            }
+
+            _logger.Debug("Successfully synced files by MD5.");
             return Result.Success();
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error occurred during file synchronization.");
-            return Result.Fail("Error occurred during file synchronization: " + ex.Message);
+            return Result.Fail($"Error occurred during file synchronization: {ex.Message}");
         }
     }
-    private void DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
+
+    private OperationFileProcessorResult DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
     {
         _logger.Debug("Starting deletion of files from destination...");
-
-        foreach (var relativePath in pathsToDelete)
-        {
-            try
-            {
-                var fullPathToDelete = Path.Combine(_replicaPath, relativePath);
-                if (File.Exists(fullPathToDelete))
-                {
-                    var file = new FileInfo(fullPathToDelete);
-                    SetFileAsWritable(file);
-                    file.Delete();
-                    _logger.Info($"File {fullPathToDelete} successfully deleted.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error deleting file {relativePath}.");
-            }
-        }
-        _logger.Debug("Completed deletion of files from destination.");
-
+        var deleteResult = _fileProcessor.DeleteFiles(GetAbsolutePaths(pathsToDelete, _replicaPath));
+        return new OperationFileProcessorResult(deleteResult, "File Deletion");
     }
 
-    private void CopyFilesToDestination(IEnumerable<string> pathsToCopy)
+    private OperationFileProcessorResult CopyFilesToDestination(IEnumerable<string> pathsToCopy)
     {
         _logger.Debug("Starting copying files to destination...");
-
+        var absolutePathsToCopy = new List<(string, string)>();
         foreach (var relativePath in pathsToCopy)
         {
-            try
-            {
-                var sourceFilePath = Path.Combine(_sourcePath, relativePath);
-                var destinationFilePath = Path.Combine(_replicaPath, relativePath);
-
-                if (File.Exists(destinationFilePath))
-                {
-                    var destFile = new FileInfo(destinationFilePath);
-                    SetFileAsWritable(destFile);
-                }
-
-                if (File.Exists(sourceFilePath))
-                {
-                    var destinationFolder = Path.GetDirectoryName(destinationFilePath);
-                    Directory.CreateDirectory(destinationFolder);
-
-                    using (var sourceStream = new FileStream(sourceFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    using (var destStream = new FileStream(destinationFilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
-                    {
-                        sourceStream.CopyTo(destStream);
-                    }
-
-                    File.SetAttributes(destinationFilePath, File.GetAttributes(sourceFilePath));
-                    _logger.Info($"File {sourceFilePath} successfully copied to {destinationFilePath}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error copying file {relativePath}.");
-            }
+            var sourceFilePath = Path.Combine(_sourcePath, relativePath);
+            var destinationFilePath = Path.Combine(_replicaPath, relativePath);
+            absolutePathsToCopy.Add((sourceFilePath, destinationFilePath));
         }
-        _logger.Debug("Completed copying files to destination.");
-
+        var copyResult = _fileProcessor.CopyFiles(absolutePathsToCopy);
+        return new OperationFileProcessorResult(copyResult, "File Copying");
     }
 
-    private void DeleteDirectories(List<string> directoriesToDelete)
+    private OperationFileProcessorResult DeleteDirectories(List<string> directoriesToDelete)
     {
         _logger.Debug("Starting deleting directories...");
-
-        foreach (var relativeDirectoryPath in directoriesToDelete)
-        {
-            try
-            {
-                var fullPathToDelete = Path.Combine(_replicaPath, relativeDirectoryPath);
-
-                if (Directory.Exists(fullPathToDelete))
-                {
-                    Directory.Delete(fullPathToDelete, recursive: true);
-                    _logger.Info($"Deleted directory: {fullPathToDelete}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error deleting directory {relativeDirectoryPath}.");
-            }
-        }
-        _logger.Debug("Completed deleting directories.");
-
+        var deleteDirResult = _fileProcessor.DeleteDirectories(GetAbsolutePaths(directoriesToDelete, _replicaPath));
+        return new OperationFileProcessorResult(deleteDirResult, "Directory Deletion");
     }
 
-    private void CreateDirectories(List<string> directoriesToCreate)
+    private OperationFileProcessorResult CreateDirectories(List<string> directoriesToCreate)
     {
         _logger.Debug("Starting creating directories...");
-
-        foreach (var relativeDirectoryPath in directoriesToCreate)
-        {
-            try
-            {
-                var fullPathToCreate = Path.Combine(_replicaPath, relativeDirectoryPath);
-
-                if (!Directory.Exists(fullPathToCreate))
-                {
-                    Directory.CreateDirectory(fullPathToCreate);
-                    _logger.Info($"Created directory: {fullPathToCreate}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error creating directory {relativeDirectoryPath}.");
-            }
-        }
-        _logger.Debug("Completed creating directories.");
-
+        var createDirResult = _fileProcessor.CreateDirectories(GetAbsolutePaths(directoriesToCreate, _replicaPath));
+        return new OperationFileProcessorResult(createDirResult, "Directory Creation");
     }
 
-    public void MoveFiles(List<(string, string)> filesToMove)
+    private OperationFileProcessorResult MoveFiles(List<(string, string)> filesToMove)
     {
         _logger.Debug("Starting moving files...");
-
+        var absolutePathsToMove = new List<(string, string)>();
         foreach (var (initialPath, finalPath) in filesToMove)
         {
-            try
-            {
-                var sourceFilePath = Path.Combine(_replicaPath, initialPath);
-                var destinationFilePath = Path.Combine(_replicaPath, finalPath);
-
-                if (File.Exists(sourceFilePath))
-                {
-                    var destinationFolder = Path.GetDirectoryName(destinationFilePath);
-                    Directory.CreateDirectory(destinationFolder);
-
-                    File.Move(sourceFilePath, destinationFilePath, overwrite: true);
-                    _logger.Info($"File {sourceFilePath} successfully moved to {destinationFilePath}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error moving file from {initialPath} to {finalPath}.");
-            }
+            var sourceFilePath = Path.Combine(_replicaPath, initialPath);
+            var destinationFilePath = Path.Combine(_replicaPath, finalPath);
+            absolutePathsToMove.Add((sourceFilePath, destinationFilePath));
         }
-        _logger.Debug("Completed moving files.");
-
+        var moveResult = _fileProcessor.MoveFiles(absolutePathsToMove);
+        return new OperationFileProcessorResult(moveResult, "File Moving");
     }
 
-    private void SetFileAsWritable(FileInfo file)
+    private List<string> GetAbsolutePaths(IEnumerable<string> relativePaths, string basePath)
     {
-        if (file.IsReadOnly)
-            file.IsReadOnly = false;
+        var absolutePaths = new List<string>();
+        foreach (var relativePath in relativePaths)
+        {
+            absolutePaths.Add(Path.Combine(basePath, relativePath));
+        }
+        return absolutePaths;
     }
 
+    private void LogAllResults(List<OperationFileProcessorResult> results)
+    {
+        foreach (var operationResult in results)
+        {
+            LogResults(operationResult);
+        }
+    }
 
+    private void LogResults(OperationFileProcessorResult operationResult)
+    {
+        foreach (var path in operationResult.ProcessorResult.SuccessfullyProcessed)
+        {
+            _logger.Info($"{operationResult.OperationName} - Successfully processed: {path}");
+        }
+        foreach (var tuple in operationResult.ProcessorResult.SuccessfullyProcessedTuples)
+        {
+            _logger.Info($"{operationResult.OperationName} - Successfully processed from {tuple.Source} to {tuple.Destination}");
+        }
 
+        foreach (var error in operationResult.ProcessorResult.FailedToProcess)
+        {
+            _logger.Error($"{operationResult.OperationName} - Error processing {error.Path}. Message: {error.ErrorMessage}");
+        }
+        foreach (var error in operationResult.ProcessorResult.FailedToProcessTuples)
+        {
+            _logger.Error($"{operationResult.OperationName} - Error processing from {error.Source} to {error.Destination}. Message: {error.ErrorMessage}");
+        }
+    }
+
+    private bool AnyFailures(List<OperationFileProcessorResult> results)
+    {
+        return results.Any(r => r.HasFailures());
+    }
 }
-

@@ -17,6 +17,7 @@ namespace FolderFlect.Extensions
             services.AddSingleton<IFileComparerService, FileComparerService>();
             services.AddSingleton<ISchedulerService, SchedulerService>();
             services.AddSingleton<ISynchronisationManagerService, SynchronisationManagerService>();
+            services.AddSingleton<IFileProcessorService, FileProcessorService>();
 
             return services;
         }

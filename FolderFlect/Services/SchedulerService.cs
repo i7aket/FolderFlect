@@ -9,6 +9,8 @@ public class SchedulerService : ISchedulerService
 {
     #region Fields and Constructor
 
+    private const int MillisecondsPerSecond = 1000;
+
     private Timer _timer;
     private readonly ILogger _logger;
     private readonly int _syncIntervalInMilliseconds;
@@ -21,7 +23,7 @@ public class SchedulerService : ISchedulerService
     public SchedulerService(ILogger logger, AppConfig appConfig)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _syncIntervalInMilliseconds = appConfig.SyncInterval * 1000;
+        _syncIntervalInMilliseconds = appConfig.SyncInterval * MillisecondsPerSecond;
 
         _timer = new Timer(_syncIntervalInMilliseconds);
         _timer.Elapsed += (sender, e) => ExecuteScheduledTask();
@@ -30,7 +32,6 @@ public class SchedulerService : ISchedulerService
 
     }
     #endregion
-
     private void ExecuteScheduledTask()
     {
         _logger.Debug("Attempting to execute scheduled task...");
@@ -76,5 +77,9 @@ public class SchedulerService : ISchedulerService
         _timer.Stop();
         _logger.Debug("Scheduler timer stopped.");
 
+    }
+    public void Dispose()
+    {
+        _timer.Dispose();
     }
 }

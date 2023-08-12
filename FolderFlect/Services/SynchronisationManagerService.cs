@@ -61,10 +61,10 @@ namespace FolderFlect.Services
             var scanResult = _scannerService.RetrieveFilesGroupedByMD5AndDirectoryPaths();
             ProcessResult(scanResult, "Scanning Files");
 
-            var filesToSync = _comparerService.GetFilesToSyncGroupedByMD5AndDirectoryPaths(scanResult.Value);
-            ProcessResult(filesToSync, "Comparing Files");
+            var filesToSyncResult = _comparerService.GetFilesToSyncGroupedByMD5AndDirectoryPaths(scanResult.Value);
+            ProcessResult(filesToSyncResult, "Comparing Files");
 
-            var syncResult = _syncService.SyncFilesByMD5(filesToSync.Value);
+            var syncResult = _syncService.SyncFilesByMD5(filesToSyncResult.Value);
             ProcessResult(syncResult, "Syncing Files");
 
             _logger.Debug("Synchronization finished.");

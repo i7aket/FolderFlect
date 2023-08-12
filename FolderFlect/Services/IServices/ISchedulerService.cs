@@ -4,4 +4,6 @@
 
     void Start();
     void Stop();
+    void Dispose();
+
 }

@@ -41,6 +41,8 @@ namespace FolderFlect.Helpers
 
             config.AddRule(LogLevel.Debug, LogLevel.Debug, debugfile); // Debug to Debug log file
             config.AddRule(LogLevel.Error, LogLevel.Error, debugfile); // Error to Debug log file
+            config.AddRule(LogLevel.Warn, LogLevel.Warn, debugfile); // Warning to Debug log file
+
 
             // Apply config
             NLog.LogManager.Configuration = config;
