@@ -1,6 +1,6 @@
 ﻿namespace FolderFlect.Utilities
 {
-    public class Result<T>
+    public class Result<T> : IResult
     {
         public T Value { get; }
         public bool IsSuccess { get; }

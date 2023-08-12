@@ -36,6 +36,6 @@ public class Program
             .BuildServiceProvider();
 
         var synchronisationManagerService = serviceProvider.GetRequiredService<ISynchronisationManagerService>();
-        synchronisationManagerService.RunFolderSynchronisation();
+        synchronisationManagerService.StartSync();
     }
 }

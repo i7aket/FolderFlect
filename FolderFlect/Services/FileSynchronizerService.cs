@@ -5,6 +5,8 @@ using FolderFlect.Utilities;
 
 public class FileSynchronizerService : IFileSynchronizerService
 {
+    #region Fields and Constructor
+
     private readonly ILogger _logger;
     private readonly string _sourcePath;
     private readonly string _replicaPath;
@@ -17,6 +19,8 @@ public class FileSynchronizerService : IFileSynchronizerService
         _logger.Debug("FileSynchronizerService initialized with source and replica paths.");
 
     }
+
+    #endregion
 
     public Result SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet)
     {

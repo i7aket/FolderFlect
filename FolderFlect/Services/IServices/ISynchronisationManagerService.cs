@@ -2,6 +2,6 @@
 {
     public interface ISynchronisationManagerService
     {
-        void RunFolderSynchronisation();
+        void StartSync();
     }
 }

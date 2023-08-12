@@ -7,6 +7,8 @@ using Timer = System.Timers.Timer;
 
 public class SchedulerService : ISchedulerService
 {
+    #region Fields and Constructor
+
     private Timer _timer;
     private readonly ILogger _logger;
     private readonly int _syncIntervalInMilliseconds;
@@ -27,6 +29,7 @@ public class SchedulerService : ISchedulerService
         _logger.Debug($"SchedulerService constructed with sync interval: {TimeHelper.GetInterval(appConfig.SyncInterval)}.");
 
     }
+    #endregion
 
     private void ExecuteScheduledTask()
     {

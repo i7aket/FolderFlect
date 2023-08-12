@@ -3,88 +3,82 @@ using FolderFlect.Models;
 using FolderFlect.Services.IServices;
 using FolderFlect.Utilities;
 using NLog;
+using System;
 
 namespace FolderFlect.Services
 {
     public class SynchronisationManagerService : ISynchronisationManagerService
     {
+        #region Fields and Constructor
+
         private readonly AppConfig _config;
         private readonly ILogger _logger;
-        private readonly IFileSynchronizerService _fileSynchronizerService;
-        private readonly IFileScannerService _filesScannerService;
-        private readonly IFileComparerService _fileComparerService;
+        private readonly IFileSynchronizerService _syncService;
+        private readonly IFileScannerService _scannerService;
+        private readonly IFileComparerService _comparerService;
         private readonly ISchedulerService _scheduler;
 
         public SynchronisationManagerService(
             AppConfig config,
             ILogger logger,
-            IFileSynchronizerService fileSynchronizerService,
-            IFileScannerService filesScannerService,
-            IFileComparerService fileComparerService,
+            IFileSynchronizerService syncService,
+            IFileScannerService scannerService,
+            IFileComparerService comparerService,
             ISchedulerService scheduler)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             Helpers.NLogConfiguraion.ConfigureNLog(_config);
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _fileSynchronizerService = fileSynchronizerService ?? throw new ArgumentNullException(nameof(fileSynchronizerService));
-            _filesScannerService = filesScannerService ?? throw new ArgumentNullException(nameof(filesScannerService));
-            _fileComparerService = fileComparerService ?? throw new ArgumentNullException(nameof(fileComparerService));
+            _syncService = syncService ?? throw new ArgumentNullException(nameof(syncService));
+            _scannerService = scannerService ?? throw new ArgumentNullException(nameof(scannerService));
+            _comparerService = comparerService ?? throw new ArgumentNullException(nameof(comparerService));
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
-            _scheduler.OnExecute += PerformSynchronisation;
+            _scheduler.OnExecute += Sync;
 
-            _logger.Debug("SynchronisationManagerService constructed successfully.");
-
+            _logger.Debug("Service initialized.");
         }
 
-        private void PerformSynchronisation()
+        #endregion
+
+        public void StartSync()
         {
-
-            _logger.Debug("Starting PerformSynchronisation...");
-
-            var RetrieveFilesGroupedByMD5AndDirectoryPathsResult = _filesScannerService.RetrieveFilesGroupedByMD5AndDirectoryPaths();
-            if (!RetrieveFilesGroupedByMD5AndDirectoryPathsResult.IsSuccess)
-            {
-                _logger.Error(RetrieveFilesGroupedByMD5AndDirectoryPathsResult.Message);
-                _logger.Debug("PerformSynchronisation terminated early due to RetrieveFilesGroupedByMD5AndDirectoryPaths failure.");
-                return;
-            }
-
-            var filesGroupedByMD5AndDirectoryPaths = RetrieveFilesGroupedByMD5AndDirectoryPathsResult.Value;
-
-            var GetFilesToSyncGroupedByMD5AndDirectoryPathsResult = _fileComparerService.GetFilesToSyncGroupedByMD5AndDirectoryPaths(filesGroupedByMD5AndDirectoryPaths);
-            if (!GetFilesToSyncGroupedByMD5AndDirectoryPathsResult.IsSuccess)
-            {
-                _logger.Error(GetFilesToSyncGroupedByMD5AndDirectoryPathsResult.Message);
-                _logger.Debug("PerformSynchronisation terminated early due to GetFilesToSyncGroupedByMD5AndDirectoryPaths failure.");
-                return;
-            }
-
-            var FilesToSyncGroupedByMD5AndDirectoryPaths = GetFilesToSyncGroupedByMD5AndDirectoryPathsResult.Value;
-
-            var SyncFileByMD5Result = _fileSynchronizerService.SyncFilesByMD5(FilesToSyncGroupedByMD5AndDirectoryPaths);
-            if (!SyncFileByMD5Result.IsSuccess)
-            {
-                _logger.Error(SyncFileByMD5Result.Message);
-                _logger.Debug("PerformSynchronisation terminated early due to SyncFilesByMD5 failure.");
-                return;
-            }
-
-            _logger.Debug("Finished PerformSynchronisation successfully.");
-
-        }
-
-        public void RunFolderSynchronisation()
-        {
-            _logger.Debug("Starting folder synchronization...");
+            _logger.Debug("Starting synchronization...");
 
             _scheduler.Start();
-            _logger.Info(_config + $"\nPress any key to stop...");
+            _logger.Info($"{_config}\nPress any key to stop...");
             Console.ReadLine();
             _scheduler.Stop();
 
-            _logger.Debug("Folder synchronization stopped.");
+            _logger.Debug("Synchronization stopped.");
         }
+
+        private void Sync()
+        {
+            _logger.Debug("Starting synchronization...");
+
+            var scanResult = _scannerService.RetrieveFilesGroupedByMD5AndDirectoryPaths();
+            ProcessResult(scanResult, "Scanning Files");
+
+            var filesToSync = _comparerService.GetFilesToSyncGroupedByMD5AndDirectoryPaths(scanResult.Value);
+            ProcessResult(filesToSync, "Comparing Files");
+
+            var syncResult = _syncService.SyncFilesByMD5(filesToSync.Value);
+            ProcessResult(syncResult, "Syncing Files");
+
+            _logger.Debug("Synchronization finished.");
+        }
+
+        private void ProcessResult(IResult result, string operationName)
+        {
+            if (!result.IsSuccess)
+            {
+                _logger.Error(result.Message);
+                _logger.Debug($"PerformSynchronisation terminated early due to {operationName} failure.");
+                return;
+            }
+        }
+
     }
 }
