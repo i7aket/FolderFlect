@@ -2,6 +2,9 @@
 using FolderFlect.Utilities;
 using NLog;
 
+/// <summary>
+/// Service responsible for comparing files based on their MD5 hashes and directory paths.
+/// </summary>
 public class FileComparerService : IFileComparerService
 {
     #region Fields and Constructor

@@ -55,6 +55,16 @@ namespace FolderFlect.Utilities
             return relativePath;
         }
 
+        public static List<string> GetAbsolutePaths(IEnumerable<string> relativePaths, string basePath)
+        {
+            var absolutePaths = new List<string>();
+            foreach (var relativePath in relativePaths)
+            {
+                absolutePaths.Add(Path.Combine(basePath, relativePath));
+            }
+            return absolutePaths;
+        }
+
         #endregion
     }
 }

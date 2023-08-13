@@ -7,6 +7,9 @@ using System;
 
 namespace FolderFlect.Services
 {
+    /// <summary>
+    /// Manages the synchronization of files, utilizing other services to scan, compare, and synchronize.
+    /// </summary>
     public class SynchronisationManagerService : ISynchronisationManagerService
     {
         #region Fields and Constructor
@@ -18,6 +21,7 @@ namespace FolderFlect.Services
         private readonly IFileComparerService _comparerService;
         private readonly ISchedulerService _scheduler;
 
+
         public SynchronisationManagerService(
             AppConfig config,
             ILogger logger,
@@ -27,7 +31,7 @@ namespace FolderFlect.Services
             ISchedulerService scheduler)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            Helpers.NLogConfiguraion.ConfigureNLog(_config);
+            Helpers.NLogConfiguraion.ConfigureNLog(_config); // Set up NLog configurations.
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _syncService = syncService ?? throw new ArgumentNullException(nameof(syncService));
@@ -35,25 +39,31 @@ namespace FolderFlect.Services
             _comparerService = comparerService ?? throw new ArgumentNullException(nameof(comparerService));
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
-            _scheduler.OnExecute += Sync;
+            _scheduler.OnExecute += Sync; // Subscribe to sync tasks from the scheduler.
 
             _logger.Debug("Service initialized.");
         }
 
         #endregion
 
+        /// <summary>
+        /// Initiates the synchronization process.
+        /// </summary>
         public void StartSync()
         {
             _logger.Debug("Starting synchronization...");
 
-            _scheduler.Start();
+            _scheduler.Start(); 
             _logger.Info($"{_config}\nPress any key to stop...");
-            Console.ReadLine();
-            _scheduler.Stop();
+            Console.ReadLine(); 
+            _scheduler.Stop(); 
 
             _logger.Debug("Synchronization stopped.");
         }
 
+        /// <summary>
+        /// Executes the full synchronization process: scanning, comparing, and syncing files.
+        /// </summary>
         private void Sync()
         {
             _logger.Debug("Starting synchronization...");
@@ -70,6 +80,11 @@ namespace FolderFlect.Services
             _logger.Debug("Synchronization finished.");
         }
 
+        /// <summary>
+        /// Processes the result of an operation, logging any errors encountered.
+        /// </summary>
+        /// <param name="result">The result of the operation.</param>
+        /// <param name="operationName">The name of the operation for logging purposes.</param>
         private void ProcessResult(IResult result, string operationName)
         {
             if (!result.IsSuccess)
@@ -79,6 +94,5 @@ namespace FolderFlect.Services
                 return;
             }
         }
-
     }
 }

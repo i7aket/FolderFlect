@@ -9,6 +9,9 @@ using FolderFlect.Services;
 using FolderFlect.Services.IServices;
 using FolderFlect.Extensions;
 
+/// <summary>
+/// Service responsible for synchronizing files between a source path and a replica path based on their MD5 hashes.
+/// </summary>
 public class FileSynchronizerService : IFileSynchronizerService
 {
     #region Fields and Constructor
@@ -30,6 +33,11 @@ public class FileSynchronizerService : IFileSynchronizerService
 
     #endregion
 
+    /// <summary>
+    /// Synchronizes files by comparing their MD5 hashes.
+    /// </summary>
+    /// <param name="filesToSyncSet">Set of files to be synchronized.</param>
+    /// <returns>The result of the synchronization process.</returns>
     public Result SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet)
     {
         _logger.Debug("Starting SyncFilesByMD5...");
@@ -62,13 +70,23 @@ public class FileSynchronizerService : IFileSynchronizerService
         }
     }
 
+    /// <summary>
+    /// Deletes specified files from the destination.
+    /// </summary>
+    /// <param name="pathsToDelete">Relative paths of files to delete.</param>
+    /// <returns>The result of the delete operation.</returns>
     private OperationFileProcessorResult DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
     {
         _logger.Debug("Starting deletion of files from destination...");
-        var deleteResult = _fileProcessor.DeleteFiles(GetAbsolutePaths(pathsToDelete, _replicaPath));
+        var deleteResult = _fileProcessor.DeleteFiles(FileSyncHelper.GetAbsolutePaths(pathsToDelete, _replicaPath));
         return new OperationFileProcessorResult(deleteResult, "File Deletion");
     }
 
+    /// <summary>
+    /// Copies specified files to the destination.
+    /// </summary>
+    /// <param name="pathsToCopy">Relative paths of files to copy.</param>
+    /// <returns>The result of the copy operation.</returns>
     private OperationFileProcessorResult CopyFilesToDestination(IEnumerable<string> pathsToCopy)
     {
         _logger.Debug("Starting copying files to destination...");
@@ -83,20 +101,34 @@ public class FileSynchronizerService : IFileSynchronizerService
         return new OperationFileProcessorResult(copyResult, "File Copying");
     }
 
+    /// <summary>
+    /// Deletes specified directories.
+    /// </summary>
+    /// <param name="directoriesToDelete">List of directories to delete.</param>
+    /// <returns>The result of the delete operation.</returns>
     private OperationFileProcessorResult DeleteDirectories(List<string> directoriesToDelete)
     {
         _logger.Debug("Starting deleting directories...");
-        var deleteDirResult = _fileProcessor.DeleteDirectories(GetAbsolutePaths(directoriesToDelete, _replicaPath));
+        var deleteDirResult = _fileProcessor.DeleteDirectories(FileSyncHelper.GetAbsolutePaths(directoriesToDelete, _replicaPath));
         return new OperationFileProcessorResult(deleteDirResult, "Directory Deletion");
     }
 
+    /// <summary>
+    /// Creates specified directories.
+    /// </summary>
+    /// <param name="directoriesToCreate">List of directories to create.</param>
+    /// <returns>The result of the directory creation operation.</returns>
     private OperationFileProcessorResult CreateDirectories(List<string> directoriesToCreate)
     {
         _logger.Debug("Starting creating directories...");
-        var createDirResult = _fileProcessor.CreateDirectories(GetAbsolutePaths(directoriesToCreate, _replicaPath));
+        var createDirResult = _fileProcessor.CreateDirectories(FileSyncHelper.GetAbsolutePaths(directoriesToCreate, _replicaPath));
         return new OperationFileProcessorResult(createDirResult, "Directory Creation");
     }
-
+    /// <summary>
+    /// Moves specified files.
+    /// </summary>
+    /// <param name="filesToMove">Pairs of initial and final paths for moving files.</param>
+    /// <returns>The result of the move operation.</returns>
     private OperationFileProcessorResult MoveFiles(List<(string, string)> filesToMove)
     {
         _logger.Debug("Starting moving files...");
@@ -111,16 +143,11 @@ public class FileSynchronizerService : IFileSynchronizerService
         return new OperationFileProcessorResult(moveResult, "File Moving");
     }
 
-    private List<string> GetAbsolutePaths(IEnumerable<string> relativePaths, string basePath)
-    {
-        var absolutePaths = new List<string>();
-        foreach (var relativePath in relativePaths)
-        {
-            absolutePaths.Add(Path.Combine(basePath, relativePath));
-        }
-        return absolutePaths;
-    }
-
+    /// <summary>
+    /// Checks if any operation resulted in failures.
+    /// </summary>
+    /// <param name="results">List of operation results.</param>
+    /// <returns>True if there are any failures, false otherwise.</returns>
     private bool AnyFailures(List<OperationFileProcessorResult> results)
     {
         return results.Any(r => r.HasFailures());

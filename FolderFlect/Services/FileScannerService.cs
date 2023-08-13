@@ -12,6 +12,11 @@ using FolderFlect.Extensions;
 
 namespace FolderFlect.Services
 {
+    /// <summary>
+    /// Service responsible for scanning and grouping files from source and replica directories based on their MD5 hashes.
+    /// It retrieves structured representations of files and directories, groups files by their MD5 hashes, 
+    /// and organizes directories by their relative paths.
+    /// </summary>
     public class FileScannerService : IFileScannerService
     {
         #region Fields and Constructor
@@ -20,10 +25,6 @@ namespace FolderFlect.Services
         private readonly (string Path, string Name) _sourcePathInfo;
         private readonly (string Path, string Name) _replicaPathInfo;
 
-        /// <summary>
-        /// Constructor of FileScannerService.
-        /// Initializes logging and source & replica path information.
-        /// </summary>
         public FileScannerService(ILogger logger, AppConfig appConfig)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

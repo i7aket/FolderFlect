@@ -15,11 +15,6 @@ namespace FolderFlect.Services
     {
         private readonly ILogger _logger;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FileProcessorService"/> class.
-        /// </summary>
-        /// <param name="logger">The logger used for logging operations.</param>
-        /// <exception cref="ArgumentNullException">Thrown when logger is null.</exception>
         public FileProcessorService(ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
