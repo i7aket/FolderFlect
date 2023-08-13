@@ -23,14 +23,21 @@ public class SchedulerService : ISchedulerService
     public SchedulerService(ILogger logger, AppConfig appConfig)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        if (appConfig == null)
+            throw new ArgumentNullException(nameof(appConfig));
+
+        if (appConfig.SyncInterval <= 0)
+            throw new ArgumentException("SyncInterval must be a positive value.", nameof(appConfig.SyncInterval));
+
         _syncIntervalInMilliseconds = appConfig.SyncInterval * MillisecondsPerSecond;
 
         _timer = new Timer(_syncIntervalInMilliseconds);
         _timer.Elapsed += (sender, e) => ExecuteScheduledTask();
 
         _logger.Debug($"SchedulerService constructed with sync interval: {TimeHelper.GetInterval(appConfig.SyncInterval)}.");
-
     }
+
     #endregion
     private void ExecuteScheduledTask()
     {

@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using static FolderFlect.Constants.Descriptor;
 
 namespace FolderFlect.Services
 {
@@ -17,28 +16,47 @@ namespace FolderFlect.Services
         #region Fields and Constructor
 
         private readonly ILogger _logger;
-        private readonly string _sourcePath;
-        private readonly string _replicaPath;
+        private readonly (string Path, string Name) _sourcePathInfo;
+        private readonly (string Path, string Name) _replicaPathInfo;
 
+        /// <summary>
+        /// Constructor of FileScannerService.
+        /// Initializes logging and source & replica path information.
+        /// </summary>
         public FileScannerService(ILogger logger, AppConfig appConfig)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _sourcePath = appConfig.SourcePath;
-            _replicaPath = appConfig.ReplicaPath;
-            _logger.Debug($"Initialized FileScannerService with SourcePath: {_sourcePath} and ReplicaPath: {_replicaPath}");
+            _sourcePathInfo = appConfig.SourcePathInfo;
+            _replicaPathInfo = appConfig.ReplicaPathInfo;
+
+            LogPathInfo("Initialized with", _sourcePathInfo);
+            LogPathInfo("Initialized with", _replicaPathInfo);
         }
 
         #endregion
 
+        /// <summary>
+        /// Retrieves a structured representation of files and directories from the source and destination paths.
+        /// The files are grouped by their MD5 hashes and the directories by their relative paths.
+        ///
+        /// The resulting MD5FileSet contains:
+        /// - SourceFiles: An ILookup of files from the source path, grouped by their MD5 hash.
+        /// - DestinationFiles: An ILookup of files from the destination path, grouped by their MD5 hash.
+        /// - SourceDirectories: A Dictionary representing directories from the source path with their relative paths as keys.
+        /// - DestinationDirectories: A Dictionary representing directories from the destination path with their relative paths as keys.
+        ///
+        /// </summary>
+        /// <returns>Result containing MD5FileSet on success or an error message on failure.</returns>
+
         public Result<MD5FileSet> RetrieveFilesGroupedByMD5AndDirectoryPaths()
         {
-            _logger.Debug("Starting RetrieveFilesGroupedByMD5AndDirectoryPaths");
             try
             {
-                var sourceFilesByMD5Hash = ScanDirectory(_sourcePath, Source_Descriptor, FilesByMD5HashProcessor);
-                var destForFilesByMD5Hash = ScanDirectory(_replicaPath, Destination_Descriptor, FilesByMD5HashProcessor);
-                var sourceDirectoriesByRelativePath = ScanDirectory(_sourcePath, Source_Descriptor, DirectoriesByRelativePathProcessor);
-                var destDirectoriesByRelativePath = ScanDirectory(_replicaPath, Destination_Descriptor, DirectoriesByRelativePathProcessor);
+                var sourceFilesByMD5Hash = FilesByMD5HashProcessor(_sourcePathInfo);
+                var destForFilesByMD5Hash = FilesByMD5HashProcessor(_replicaPathInfo);
+
+                var sourceDirectoriesByRelativePath = DirectoriesByRelativePathProcessor(_sourcePathInfo);
+                var destDirectoriesByRelativePath = DirectoriesByRelativePathProcessor(_replicaPathInfo);
 
                 var fileSet = new MD5FileSet(
                     sourceFilesByMD5Hash,
@@ -58,29 +76,43 @@ namespace FolderFlect.Services
             }
         }
 
-        private TResult ScanDirectory<TResult>(string directoryPath, string descriptor, Func<string, TResult> pathProcessor)
+        /// <summary>
+        /// Processes a given directory to retrieve all its sub-directories,
+        /// mapped by their relative paths.
+        /// </summary>
+        private Dictionary<string, string> DirectoriesByRelativePathProcessor((string Path, string Name) directoryInfo)
         {
-            _logger.Debug($"Starting scanning for {descriptor} at {directoryPath}");
-            FileSyncHelper.EnsureDirectoryExists(directoryPath);
-            return pathProcessor(directoryPath);
-        }
+            LogPathInfo("Starting scanning for", directoryInfo);
+            FileSyncHelper.EnsureDirectoryExists(directoryInfo.Path);
 
-        private Dictionary<string, string> DirectoriesByRelativePathProcessor(string directoryPath)
-        {
-            var directories = Directory.GetDirectories(directoryPath, "*", SearchOption.AllDirectories)
-                                       .ToDictionary(dir => FileSyncHelper.GetRelativePath(directoryPath, dir), dir => dir);
+            var directories = Directory.GetDirectories(directoryInfo.Path, "*", SearchOption.AllDirectories)
+                                       .ToDictionary(dir => FileSyncHelper.GetRelativePath(directoryInfo.Path, dir), dir => dir);
             return directories;
         }
 
-        private ILookup<string, FileModel> FilesByMD5HashProcessor(string directoryPath)
+        /// <summary>
+        /// Processes a given directory to retrieve all its files,
+        /// and groups them by their MD5 hash values using ILookup.
+        /// ILookup allows efficient lookup and preserves the order of files.
+        /// The use of ILookup ensures that files with identical MD5 hash values
+        /// are all retained and can be easily retrieved.
+        /// </summary>
+        private ILookup<string, FileModel> FilesByMD5HashProcessor((string Path, string Name) directoryInfo)
         {
-            var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories)
-                                 .Select(file => CreateFileModel(file, directoryPath))
+            LogPathInfo("Starting scanning for", directoryInfo);
+            FileSyncHelper.EnsureDirectoryExists(directoryInfo.Path);
+
+            var files = Directory.GetFiles(directoryInfo.Path, "*", SearchOption.AllDirectories)
+                                 .Select(file => CreateFileModel(file, directoryInfo.Path))
                                  .Where(fileModel => fileModel != null)
                                  .ToLookup(fileModel => fileModel.MD5Hash);
             return files;
         }
 
+
+        /// <summary>
+        /// Constructs a FileModel from the given absolute file path and its base directory.
+        /// </summary>
         private FileModel CreateFileModel(string absoluteFilePath, string baseDirectory)
         {
             try
@@ -105,6 +137,14 @@ namespace FolderFlect.Services
                 _logger.Error(ex, $"Error in CreateFileModel for absoluteFilePath: {absoluteFilePath}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Logs path info using the provided message and path tuple.
+        /// </summary>
+        private void LogPathInfo(string message, (string Path, string Name) pathInfo)
+        {
+            _logger.Debug($"{message} {pathInfo.Name}: {pathInfo.Path}");
         }
     }
 }

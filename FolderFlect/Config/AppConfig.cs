@@ -10,6 +10,9 @@ namespace FolderFlect.Config
         int SyncInterval,
         string LogFilePath)
     {
+        public (string Path, string Name) SourcePathInfo => (SourcePath, "Source Path");
+        public (string Path, string Name) ReplicaPathInfo => (ReplicaPath, "Replica Path");
+
         public override string ToString()
         {
             var labelColumnWidth = 26;
@@ -25,7 +28,5 @@ namespace FolderFlect.Config
         {
             return label.PadRight(totalWidth, ' ');
         }
-
-
     }
 }

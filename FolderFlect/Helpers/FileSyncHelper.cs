@@ -33,14 +33,13 @@ namespace FolderFlect.Utilities
 
         #region Directory Operations
 
-        public static bool EnsureDirectoryExists(string directoryPath)
+        public static void EnsureDirectoryExists(string directoryPath)
         {
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
-                return true; 
+
             }
-            return false; 
         }
 
         #endregion
