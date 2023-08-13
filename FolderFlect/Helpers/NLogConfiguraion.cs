@@ -10,7 +10,7 @@ namespace FolderFlect.Helpers
 {
     public static class NLogConfiguraion
     {
-        public static void ConfigureNLog(AppConfig appConfig)
+        public static void ConfigureNLog(CommandLineConfig appConfig)
         {
             var logFilePath = appConfig.LogFilePath;
             var debugLogFilePath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(logFilePath), "debuglog.txt");
@@ -21,18 +21,18 @@ namespace FolderFlect.Helpers
             var logfile = new NLog.Targets.FileTarget("logfile")
             {
                 FileName = logFilePath,
-                Layout = "${longdate} ${uppercase:${level}} ${message}"
+                Layout = "${date:format=yyyy-MM-dd HH\\:mm\\:ss} ${uppercase:${level}} ${message}"
             };
 
             var debugfile = new NLog.Targets.FileTarget("debugfile")
             {
                 FileName = debugLogFilePath,
-                Layout = "${longdate} ${uppercase:${level}} ${message}"
+                Layout = "${date:format=yyyy-MM-dd HH\\:mm\\:ss} ${uppercase:${level}} ${message}"
             };
 
             var logconsole = new NLog.Targets.ConsoleTarget("logconsole")
             {
-                Layout = "${longdate} ${uppercase:${level}} ${message}"
+                Layout = "${date:format=yyyy-MM-dd HH\\:mm\\:ss} ${uppercase:${level}} ${message}"
             };
 
             // Rules for mapping loggers to targets

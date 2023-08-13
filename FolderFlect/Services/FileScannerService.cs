@@ -25,7 +25,7 @@ namespace FolderFlect.Services
         private readonly (string Path, string Name) _sourcePathInfo;
         private readonly (string Path, string Name) _replicaPathInfo;
 
-        public FileScannerService(ILogger logger, AppConfig appConfig)
+        public FileScannerService(ILogger logger, CommandLineConfig appConfig)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _sourcePathInfo = appConfig.SourcePathInfo;

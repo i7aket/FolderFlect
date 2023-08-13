@@ -3,39 +3,58 @@ using FolderFlect.Extensions;
 using FolderFlect.Helpers;
 using FolderFlect.Services.IServices;
 using Microsoft.Extensions.DependencyInjection;
-using NLog;
 using System;
 
 public class Program
 {
+    private static readonly bool DebugMode = false;  
+
     static void Main(string[] args)
     {
         Console.WriteLine($"{DateTime.Now}: The FolderFlect has started.");
 
-/*        args = new string[]
+        if (DebugMode)
         {
-            "-source", @"C:\FolderFlect\ToReplicate",
-            "-replica", @"C:\FolderFlect\Reflection",
-            "-interval", "1",
-            "-log", @"C:\FolderFlect\log.txt"
-        };*/
+            args = new string[]
+            {
+                "-source", @"C:\FolderFlect\ToReplicate",
+                "-replica", @"C:\FolderFlect\Reflection",
+                "-interval", "3",
+                "-log", @"C:\FolderFlect\log.txt"
+            };
+        }
 
-        var loadConfigurationResult = ConfigurationLoader.LoadConfiguration(args);
+        var loadConfigurationResult = CommandLineParser.ParseArgs(args);
 
         if (!loadConfigurationResult.IsSuccess)
         {
             Console.WriteLine(loadConfigurationResult.Message);
-            Console.ReadLine();
+            WaitForUserInput();
             return;
         }
 
         var configuration = loadConfigurationResult.Value;
+        var serviceProvider = ConfigureDependencyInjection(configuration);
 
-        var serviceProvider = new ServiceCollection()
+        StartSynchronizationService(serviceProvider);
+    }
+
+    private static IServiceProvider ConfigureDependencyInjection(CommandLineConfig configuration)
+    {
+        return new ServiceCollection()
             .AddFolderFlectServices(configuration)
             .BuildServiceProvider();
+    }
 
+    private static void StartSynchronizationService(IServiceProvider serviceProvider)
+    {
         var synchronisationManagerService = serviceProvider.GetRequiredService<ISynchronisationManagerService>();
         synchronisationManagerService.StartSync();
+    }
+
+    private static void WaitForUserInput()
+    {
+        Console.WriteLine("Press any key to exit...");
+        Console.ReadKey();
     }
 }

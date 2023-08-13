@@ -14,7 +14,7 @@ namespace FolderFlect.Services
     {
         #region Fields and Constructor
 
-        private readonly AppConfig _config;
+        private readonly CommandLineConfig _config;
         private readonly ILogger _logger;
         private readonly IFileSynchronizerService _syncService;
         private readonly IFileScannerService _scannerService;
@@ -23,7 +23,7 @@ namespace FolderFlect.Services
 
 
         public SynchronisationManagerService(
-            AppConfig config,
+            CommandLineConfig config,
             ILogger logger,
             IFileSynchronizerService syncService,
             IFileScannerService scannerService,

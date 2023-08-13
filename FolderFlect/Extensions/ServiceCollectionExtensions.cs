@@ -8,7 +8,7 @@ namespace FolderFlect.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddFolderFlectServices(this IServiceCollection services, AppConfig configuration)
+        public static IServiceCollection AddFolderFlectServices(this IServiceCollection services, CommandLineConfig configuration)
         {
             services.AddSingleton(configuration);
             services.AddSingleton<ILogger>(provider => LogManager.GetCurrentClassLogger());

@@ -21,7 +21,7 @@ public class FileSynchronizerService : IFileSynchronizerService
     private readonly string _replicaPath;
     private readonly IFileProcessorService _fileProcessor;
 
-    public FileSynchronizerService(ILogger logger, AppConfig appConfig, IFileProcessorService fileProcessorService)
+    public FileSynchronizerService(ILogger logger, CommandLineConfig appConfig, IFileProcessorService fileProcessorService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sourcePath = !string.IsNullOrWhiteSpace(appConfig.SourcePath) ? appConfig.SourcePath : throw new ArgumentException("SourcePath cannot be null or empty.", nameof(appConfig.SourcePath));

@@ -26,7 +26,7 @@ public class SchedulerService : ISchedulerService
     public delegate void TaskToRunHandler();
     public event TaskToRunHandler OnExecute;
 
-    public SchedulerService(ILogger logger, AppConfig appConfig)
+    public SchedulerService(ILogger logger, CommandLineConfig appConfig)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
