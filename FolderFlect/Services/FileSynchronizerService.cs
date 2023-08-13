@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using FolderFlect.Services;
 using FolderFlect.Services.IServices;
+using FolderFlect.Extensions;
 
 public class FileSynchronizerService : IFileSynchronizerService
 {
@@ -43,7 +44,7 @@ public class FileSynchronizerService : IFileSynchronizerService
             results.Add(DeleteFilesFromDestination(filesToSyncSet.FilesToDelete));
             results.Add(DeleteDirectories(filesToSyncSet.DirectoriesToDelete));
 
-            LogAllResults(results);
+            _logger.LogSyncResult(results);
 
             if (AnyFailures(results))
             {
@@ -118,35 +119,6 @@ public class FileSynchronizerService : IFileSynchronizerService
             absolutePaths.Add(Path.Combine(basePath, relativePath));
         }
         return absolutePaths;
-    }
-
-    private void LogAllResults(List<OperationFileProcessorResult> results)
-    {
-        foreach (var operationResult in results)
-        {
-            LogResults(operationResult);
-        }
-    }
-
-    private void LogResults(OperationFileProcessorResult operationResult)
-    {
-        foreach (var path in operationResult.ProcessorResult.SuccessfullyProcessed)
-        {
-            _logger.Info($"{operationResult.OperationName} - Successfully processed: {path}");
-        }
-        foreach (var tuple in operationResult.ProcessorResult.SuccessfullyProcessedTuples)
-        {
-            _logger.Info($"{operationResult.OperationName} - Successfully processed from {tuple.Source} to {tuple.Destination}");
-        }
-
-        foreach (var error in operationResult.ProcessorResult.FailedToProcess)
-        {
-            _logger.Error($"{operationResult.OperationName} - Error processing {error.Path}. Message: {error.ErrorMessage}");
-        }
-        foreach (var error in operationResult.ProcessorResult.FailedToProcessTuples)
-        {
-            _logger.Error($"{operationResult.OperationName} - Error processing from {error.Source} to {error.Destination}. Message: {error.ErrorMessage}");
-        }
     }
 
     private bool AnyFailures(List<OperationFileProcessorResult> results)

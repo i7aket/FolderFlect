@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using FolderFlect.Extensions;
 
 namespace FolderFlect.Services
 {
@@ -29,8 +30,8 @@ namespace FolderFlect.Services
             _sourcePathInfo = appConfig.SourcePathInfo;
             _replicaPathInfo = appConfig.ReplicaPathInfo;
 
-            LogPathInfo("Initialized with", _sourcePathInfo);
-            LogPathInfo("Initialized with", _replicaPathInfo);
+            _logger.LogPathInfo("Initialized with", _sourcePathInfo);
+            _logger.LogPathInfo("Initialized with", _replicaPathInfo);
         }
 
         #endregion
@@ -82,7 +83,7 @@ namespace FolderFlect.Services
         /// </summary>
         private Dictionary<string, string> DirectoriesByRelativePathProcessor((string Path, string Name) directoryInfo)
         {
-            LogPathInfo("Starting scanning for", directoryInfo);
+            _logger.LogPathInfo("Starting scanning for", directoryInfo);
             FileSyncHelper.EnsureDirectoryExists(directoryInfo.Path);
 
             var directories = Directory.GetDirectories(directoryInfo.Path, "*", SearchOption.AllDirectories)
@@ -99,7 +100,7 @@ namespace FolderFlect.Services
         /// </summary>
         private ILookup<string, FileModel> FilesByMD5HashProcessor((string Path, string Name) directoryInfo)
         {
-            LogPathInfo("Starting scanning for", directoryInfo);
+            _logger.LogPathInfo("Starting scanning for", directoryInfo);
             FileSyncHelper.EnsureDirectoryExists(directoryInfo.Path);
 
             var files = Directory.GetFiles(directoryInfo.Path, "*", SearchOption.AllDirectories)
@@ -137,14 +138,6 @@ namespace FolderFlect.Services
                 _logger.Error(ex, $"Error in CreateFileModel for absoluteFilePath: {absoluteFilePath}");
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Logs path info using the provided message and path tuple.
-        /// </summary>
-        private void LogPathInfo(string message, (string Path, string Name) pathInfo)
-        {
-            _logger.Debug($"{message} {pathInfo.Name}: {pathInfo.Path}");
         }
     }
 }
