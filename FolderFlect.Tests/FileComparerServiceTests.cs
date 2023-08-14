@@ -120,34 +120,76 @@ public class FileComparerServiceTests
 
 
     [Test]
-    public void DetermineFilesToMoveMD5_ShouldIdentifyFilesToMove()
+    public void DetermineFilesToCopyMD5_WhenMoreDuplicateSourceFilesThanDest_ShouldMarkExtraSourceFilesForCopying()
     {
         // Arrange
         var sourceFile = new FileModel
         {
-            MD5Hash = "moveMD5Hash",
-            FileReletivePath = "sample/path/to/source/fileToMove.ext"
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/source/file1.ext"
+        };
+
+        var sourceFileDuplicate = new FileModel
+        {
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/source/file2.ext"
         };
 
         var destFile = new FileModel
         {
-            MD5Hash = "moveMD5Hash",
-            FileReletivePath = "sample/different/path/in/destination/file.ext"
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/destination/file.ext"
         };
 
         var fileSet = new MD5FileSet(
-            new[] { sourceFile }.ToLookup(f => f.MD5Hash),   // Source Files
-            new[] { destFile }.ToLookup(f => f.MD5Hash),     // Destination Files
-            new Dictionary<string, string>(),                // Source Directories
-            new Dictionary<string, string>()                 // Destination Directories
+            new[] { sourceFile, sourceFileDuplicate }.ToLookup(f => f.MD5Hash),   // Source Files
+            new[] { destFile }.ToLookup(f => f.MD5Hash),                          // Destination Files
+            new Dictionary<string, string>(),                                    // Source Directories
+            new Dictionary<string, string>()                                      // Destination Directories
         );
 
         // Act
-        var filesToMove = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
 
         // Assert
-        var expectedMovePair = (destFile.FileReletivePath, sourceFile.FileReletivePath);
-        Assert.IsTrue(filesToMove.Value.FilesToMove.Contains(expectedMovePair));
+        Assert.IsTrue(filesToSync.Value.FilesToCopy.Contains(sourceFileDuplicate.FileReletivePath));
     }
+
+    [Test]
+    public void DetermineFilesToDeleteMD5_WhenMoreDuplicateDestFilesThanSource_ShouldMarkExtraDestFilesForDeletion()
+    {
+        // Arrange
+        var sourceFile = new FileModel
+        {
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/source/file.ext"
+        };
+
+        var destFile = new FileModel
+        {
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/destination/file1.ext"
+        };
+
+        var destFileDuplicate = new FileModel
+        {
+            MD5Hash = "duplicateMD5Hash",
+            FileReletivePath = "sample/path/to/destination/file2.ext"
+        };
+
+        var fileSet = new MD5FileSet(
+            new[] { sourceFile }.ToLookup(f => f.MD5Hash),                         // Source Files
+            new[] { destFile, destFileDuplicate }.ToLookup(f => f.MD5Hash),       // Destination Files
+            new Dictionary<string, string>(),                                     // Source Directories
+            new Dictionary<string, string>()                                       // Destination Directories
+        );
+
+        // Act
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+
+        // Assert
+        Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFileDuplicate.FileReletivePath));
+    }
+
 
 }
