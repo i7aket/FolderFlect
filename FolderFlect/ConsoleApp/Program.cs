@@ -3,11 +3,12 @@ using FolderFlect.Extensions;
 using FolderFlect.Helpers;
 using FolderFlect.Services.IServices;
 using Microsoft.Extensions.DependencyInjection;
+using PowerArgs;
 using System;
 
 public class Program
 {
-    private static readonly bool DebugMode = false;  
+    private static readonly bool DebugMode = false;
 
     static void Main(string[] args)
     {
@@ -19,24 +20,24 @@ public class Program
             {
                 "-source", @"C:\FolderFlect\ToReplicate",
                 "-replica", @"C:\FolderFlect\Reflection",
-                "-interval", "3",
+                "-interval", "60",
                 "-log", @"C:\FolderFlect\log.txt"
             };
         }
 
-        var loadConfigurationResult = CommandLineParser.ParseArgs(args);
-
-        if (!loadConfigurationResult.IsSuccess)
+        try
         {
-            Console.WriteLine(loadConfigurationResult.Message);
-            WaitForUserInput();
-            return;
+            var configuration = Args.Parse<CommandLineConfig>(args);
+            var serviceProvider = ConfigureDependencyInjection(configuration);
+            StartSynchronizationService(serviceProvider);
         }
-
-        var configuration = loadConfigurationResult.Value;
-        var serviceProvider = ConfigureDependencyInjection(configuration);
-
-        StartSynchronizationService(serviceProvider);
+        catch (ArgException ex)
+        {
+            Console.WriteLine($"Argument error: {ex.Message}");
+            Console.WriteLine(ArgUsage.GenerateUsageFromTemplate<CommandLineConfig>());
+            Console.ReadKey();
+            Environment.Exit(1);
+        }
     }
 
     private static IServiceProvider ConfigureDependencyInjection(CommandLineConfig configuration)
@@ -50,11 +51,5 @@ public class Program
     {
         var synchronisationManagerService = serviceProvider.GetRequiredService<ISynchronisationManagerService>();
         synchronisationManagerService.StartSync();
-    }
-
-    private static void WaitForUserInput()
-    {
-        Console.WriteLine("Press any key to exit...");
-        Console.ReadKey();
     }
 }
