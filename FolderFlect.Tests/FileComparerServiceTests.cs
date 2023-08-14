@@ -221,7 +221,86 @@ public class FileComparerServiceTests
         Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFileDuplicate.FileReletivePath));
     }
 
+    [Test]
+    public void DetermineSyncActionsByMD5_WhenSourceAndDestinationAreIdentical_ShouldReturnNoActions()
+    {
+        // Arrange
+        var file = new FileModel
+        {
+            MD5Hash = "sampleMD5Hash",
+            FileReletivePath = "sample/path/to/file.ext"
+        };
 
+        var fileSet = new MD5FileSet(
+            new[] { file }.ToLookup(f => f.MD5Hash),
+            new[] { file }.ToLookup(f => f.MD5Hash),
+            new Dictionary<string, string> { { "path", "path/path" } },
+            new Dictionary<string, string> { { "path", "path/path" } }
+        );
 
+        // Act
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+
+        // Assert
+        Assert.IsEmpty(filesToSync.Value.FilesToMove);
+        Assert.IsEmpty(filesToSync.Value.FilesToDelete);
+        Assert.IsEmpty(filesToSync.Value.FilesToCopy);
+        Assert.IsEmpty(filesToSync.Value.DirectoriesToCreate);
+        Assert.IsEmpty(filesToSync.Value.DirectoriesToDelete);
+    }
+
+    [Test]
+    public void DetermineSyncActionsByMD5_WhenPathsAreSameButHashesDiffer_ShouldMarkFilesForCopyAndDeletion()
+    {
+        // Arrange
+        var sourceFile = new FileModel
+        {
+            MD5Hash = "sourceMD5Hash",
+            FileReletivePath = "sample/path/to/file.ext"
+        };
+
+        var destFile = new FileModel
+        {
+            MD5Hash = "destMD5Hash",
+            FileReletivePath = "sample/path/to/file.ext"
+        };
+
+        var fileSet = new MD5FileSet(
+            new[] { sourceFile }.ToLookup(f => f.MD5Hash),
+            new[] { destFile }.ToLookup(f => f.MD5Hash),
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>()
+        );
+
+        // Act
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+
+        // Assert
+        Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFile.FileReletivePath));
+        Assert.IsTrue(filesToSync.Value.FilesToCopy.Contains(sourceFile.FileReletivePath));
+    }
+
+    [Test]
+    public void DetermineSyncActionsByMD5_WhenSourceAndDestinationAreEmpty_ShouldReturnNoActions()
+    {
+        // Arrange
+        var fileSet = new MD5FileSet(
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>()
+        );
+
+        // Act
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+
+        // Assert
+        Assert.IsEmpty(filesToSync.Value.FilesToMove);
+        Assert.IsEmpty(filesToSync.Value.FilesToDelete);
+        Assert.IsEmpty(filesToSync.Value.FilesToCopy);
+        Assert.IsEmpty(filesToSync.Value.DirectoriesToCreate);
+        Assert.IsEmpty(filesToSync.Value.DirectoriesToDelete);
+    }
 
 }
+
