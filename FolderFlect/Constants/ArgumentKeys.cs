@@ -12,5 +12,6 @@ namespace FolderFlect.Constants
         public const string Replica = "-replica";
         public const string Interval = "-interval";
         public const string Log = "-log";
+
     }
 }

@@ -20,7 +20,7 @@ public class Program
             {
                 "-source", @"C:\FolderFlect\ToReplicate",
                 "-replica", @"C:\FolderFlect\Reflection",
-                "-interval", "60",
+                "-interval", "5",
                 "-log", @"C:\FolderFlect\log.txt"
             };
         }
