@@ -118,6 +118,36 @@ public class FileComparerServiceTests
         Assert.IsTrue(filesToSync.Value.FilesToCopy.Contains(sourceFile.FileReletivePath));
     }
 
+    [Test]
+    public void DetermineFilesToMoveMD5_ShouldMarkFilesForMovementBasedOnPath()
+    {
+        // Arrange
+        var sourceFile = new FileModel
+        {
+            MD5Hash = "moveMD5Hash",
+            FileReletivePath = "sample/path/to/source/fileToMove.ext"
+        };
+
+        var destFile = new FileModel
+        {
+            MD5Hash = "moveMD5Hash",
+            FileReletivePath = "sample/oldpath/to/destination/fileToMove.ext"
+        };
+
+        var fileSet = new MD5FileSet(
+            new[] { sourceFile }.ToLookup(f => f.MD5Hash),
+            new[] { destFile }.ToLookup(f => f.MD5Hash),
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>()
+        );
+
+        // Act
+        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+
+        // Assert
+        var moveTuple = (destFile.FileReletivePath, sourceFile.FileReletivePath);
+        Assert.IsTrue(filesToSync.Value.FilesToMove.Contains(moveTuple));
+    }
 
     [Test]
     public void DetermineFilesToCopyMD5_WhenMoreDuplicateSourceFilesThanDest_ShouldMarkExtraSourceFilesForCopying()
@@ -190,6 +220,8 @@ public class FileComparerServiceTests
         // Assert
         Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFileDuplicate.FileReletivePath));
     }
+
+
 
 
 }
