@@ -1,7 +1,6 @@
-﻿namespace FolderFlect.Services.IServices
+﻿namespace FolderFlect.Services.IServices;
+
+public interface ISynchronisationManagerService
 {
-    public interface ISynchronisationManagerService
-    {
-        void StartSync();
-    }
+    void StartSync();
 }

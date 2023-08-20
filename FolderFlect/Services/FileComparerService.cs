@@ -1,6 +1,8 @@
 ﻿using FolderFlect.Models;
+using FolderFlect.Services.IServices;
 using FolderFlect.Utilities;
 using NLog;
+namespace FolderFlect.Services;
 
 /// <summary>
 /// Service responsible for comparing files based on their MD5 hashes and directory paths.
@@ -25,35 +27,28 @@ public class FileComparerService : IFileComparerService
     /// </summary>
     /// <param name="fileSet">Set of files with MD5 hashes for analysis.</param>
     /// <returns>Result of file synchronization.</returns>
-
-    public Result<FilesToSyncSetByMD5> GetFilesToSyncGroupedByMD5AndDirectoryPaths(MD5FileSet fileSet)
+    public async Task<Result<FilesToSyncSetByMD5>> GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(MD5FileSet fileSet)
     {
-        _logger.Debug("Starting GetFilesToSyncGroupedByMD5AndDirectoryPaths");
-        try
-        {
-            var directoriesToDeleteMD5 = DetermineDirectoriesToDeleteMD5(fileSet);
-            var directoriesToCreateMD5 = DetermineDirectoriesToCreateMD5(fileSet);
-            var filesToDeleteMD5 = DetermineFilesToDeleteMD5(fileSet);
-            var filesToCopyMD5 = DetermineFilesToCopyMD5(fileSet);
-            var filesToMoveMD = DetermineFilesToMoveMD5(fileSet, filesToDeleteMD5, filesToCopyMD5);
+        var directoriesToDeleteMD5Task = Task.Run(() => DetermineDirectoriesToDeleteMD5(fileSet));
+        var directoriesToCreateMD5Task = Task.Run(() => DetermineDirectoriesToCreateMD5(fileSet));
+        var filesToDeleteMD5Task = Task.Run(() => DetermineFilesToDeleteMD5(fileSet));
+        var filesToCopyMD5Task = Task.Run(() => DetermineFilesToCopyMD5(fileSet));
 
-            FilesToSyncSetByMD5 filesToSyncSet = new FilesToSyncSetByMD5(
-                directoriesToDeleteMD5,
-                directoriesToCreateMD5,
-                filesToDeleteMD5,
-                filesToCopyMD5,
-                filesToMoveMD
-            );
+        await Task.WhenAll(directoriesToDeleteMD5Task, directoriesToCreateMD5Task, filesToDeleteMD5Task, filesToCopyMD5Task);
 
-            _logger.Debug("Finished GetFilesToSyncGroupedByMD5AndDirectoryPaths with success.");
-            return Result<FilesToSyncSetByMD5>.Success(filesToSyncSet);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error($"Error during files synchronization: {ex.Message}");
-            return Result<FilesToSyncSetByMD5>.Fail($"Error during files synchronization: {ex.Message}");
-        }
+        var filesToMoveMD5 = DetermineFilesToMoveMD5(fileSet, filesToDeleteMD5Task.Result, filesToCopyMD5Task.Result);
+
+        FilesToSyncSetByMD5 filesToSyncSet = new FilesToSyncSetByMD5(
+            directoriesToDeleteMD5Task.Result,
+            directoriesToCreateMD5Task.Result,
+            filesToDeleteMD5Task.Result,
+            filesToCopyMD5Task.Result,
+            filesToMoveMD5
+        );
+
+        return Result<FilesToSyncSetByMD5>.Success(filesToSyncSet);
     }
+
 
     /// <summary>
     /// Determines directories for deletion based on MD5 comparison.

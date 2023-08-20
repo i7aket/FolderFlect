@@ -1,7 +1,8 @@
 ﻿using FolderFlect.Models;
 using FolderFlect.Utilities;
+namespace FolderFlect.Services.IServices;
 
 public interface IFileSynchronizerService
 {
-    Result SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet);
+    Task<Result> SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet);
 }

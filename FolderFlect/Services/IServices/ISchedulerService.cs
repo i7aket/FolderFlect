@@ -1,9 +1,8 @@
-﻿public interface ISchedulerService
-{
-    event SchedulerService.TaskToRunHandler OnExecute;
+﻿namespace FolderFlect.Services.IServices;
 
+public interface ISchedulerService : IDisposable
+{
+    event SchedulerService.TaskToRunHandlerAsync OnExecuteAsync;
     void Start();
     void Stop();
-    void Dispose();
-
 }

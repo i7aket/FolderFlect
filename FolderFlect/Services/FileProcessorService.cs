@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using FolderFlect.Models;
 using FolderFlect.Services.IServices;
 using FolderFlect.Utilities;
@@ -21,11 +22,11 @@ namespace FolderFlect.Services
         }
 
         /// <summary>
-        /// Moves files from source to destination paths.
+        /// Asynchronously moves files from source to destination paths.
         /// </summary>
         /// <param name="absolutePathsToMove">List of tuples containing source and destination paths.</param>
         /// <returns>Result of the file move operation.</returns>
-        public FileProcessorResult MoveFiles(List<(string SourcePath, string DestinationPath)> absolutePathsToMove)
+        public async Task<FileProcessorResult> MoveFilesAsync(List<(string SourcePath, string DestinationPath)> absolutePathsToMove)
         {
             _logger.Debug("Attempting to move files...");
 
@@ -40,7 +41,7 @@ namespace FolderFlect.Services
                     continue;
                 }
 
-                FileSyncHelper.SetFileAsWritable(sourcePath);
+                await FileSyncHelper.SetFileAsWritableAsync(sourcePath);
 
                 try
                 {
@@ -57,11 +58,11 @@ namespace FolderFlect.Services
         }
 
         /// <summary>
-        /// Copies files from source to destination paths.
+        /// Asynchronously copies files from source to destination paths.
         /// </summary>
         /// <param name="absolutePathsToCopy">List of tuples containing source and destination paths.</param>
         /// <returns>Result of the file copy operation.</returns>
-        public FileProcessorResult CopyFiles(List<(string SourcePath, string DestinationPath)> absolutePathsToCopy)
+        public async Task<FileProcessorResult> CopyFilesAsync(List<(string SourcePath, string DestinationPath)> absolutePathsToCopy)
         {
             _logger.Debug("Attempting to copy files...");
 
@@ -78,7 +79,7 @@ namespace FolderFlect.Services
 
                 try
                 {
-                    File.Copy(sourcePath, destPath, overwrite: true);
+                    await CopyFileAsync(sourcePath, destPath);
                     result.SuccessfullyProcessedTuples.Add((sourcePath, destPath));
                 }
                 catch (Exception ex)
@@ -90,12 +91,21 @@ namespace FolderFlect.Services
             return result;
         }
 
+        private async Task CopyFileAsync(string sourcePath, string destinationPath)
+        {
+            using (var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true))
+            using (var destinationStream = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+            {
+                await sourceStream.CopyToAsync(destinationStream);
+            }
+        }
+
         /// <summary>
-        /// Deletes files specified in the provided paths.
+        /// Asynchronously deletes files specified in the provided paths.
         /// </summary>
         /// <param name="absolutePathsToDelete">List of file paths to delete.</param>
         /// <returns>Result of the file delete operation.</returns>
-        public FileProcessorResult DeleteFiles(List<string> absolutePathsToDelete)
+        public async Task<FileProcessorResult> DeleteFilesAsync(List<string> absolutePathsToDelete)
         {
             _logger.Debug("Attempting to delete files...");
 
@@ -109,7 +119,7 @@ namespace FolderFlect.Services
                     continue;
                 }
 
-                FileSyncHelper.SetFileAsWritable(path);
+                await FileSyncHelper.SetFileAsWritableAsync(path);
 
                 try
                 {
@@ -126,11 +136,11 @@ namespace FolderFlect.Services
         }
 
         /// <summary>
-        /// Deletes directories specified in the provided paths.
+        /// Asynchronously deletes directories specified in the provided paths.
         /// </summary>
         /// <param name="absolutePathsToDelete">List of directory paths to delete.</param>
         /// <returns>Result of the directory delete operation.</returns>
-        public FileProcessorResult DeleteDirectories(List<string> absolutePathsToDelete)
+        public async Task<FileProcessorResult> DeleteDirectoriesAsync(List<string> absolutePathsToDelete)
         {
             _logger.Debug("Attempting to delete directories...");
 
@@ -159,11 +169,11 @@ namespace FolderFlect.Services
         }
 
         /// <summary>
-        /// Creates directories specified in the provided paths.
+        /// Asynchronously creates directories specified in the provided paths.
         /// </summary>
         /// <param name="absolutePathsToCreate">List of directory paths to create.</param>
         /// <returns>Result of the directory creation operation.</returns>
-        public FileProcessorResult CreateDirectories(List<string> absolutePathsToCreate)
+        public async Task<FileProcessorResult> CreateDirectoriesAsync(List<string> absolutePathsToCreate)
         {
             _logger.Debug("Attempting to create directories...");
 
@@ -217,6 +227,7 @@ namespace FolderFlect.Services
                     return (false, "Destination directory does not exist.");
                 }
             }
+
             return (true, string.Empty);
         }
     }

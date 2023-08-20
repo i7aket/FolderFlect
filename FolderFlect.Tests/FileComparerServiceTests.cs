@@ -1,9 +1,9 @@
-﻿using NUnit.Framework;
-using FolderFlect.Models;
-using System.Collections.Generic;
-using System.Linq;
+﻿using FolderFlect.Models;
+using FolderFlect.Services;
+using FolderFlect.Services.IServices;
 using Moq;
 using NLog;
+using NUnit.Framework;
 
 [TestFixture]
 public class FileComparerServiceTests
@@ -20,18 +20,18 @@ public class FileComparerServiceTests
 
     [Test]
     // Test to ensure directories that exist in the destination but not in the source are marked for deletion.
-    public void DetermineSyncActionsByMD5_ShouldMarkMissingSourceDirectoriesForDeletion()
+    public async Task DetermineSyncActionsByMD5_ShouldMarkMissingSourceDirectoriesForDeletion()
     {
         // Arrange
         var fileSet = new MD5FileSet(
-            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),  // Source Files
-            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),  // Destination Files
-            new Dictionary<string, string> { { "path1", "path1/path1" } }, // Source Directories
-            new Dictionary<string, string> { { "path1", "path1/path1" }, { "path2", "path2/path2" } } // Destination Directories
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),                                     // Source Files
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),                                     // Destination Files
+            new Dictionary<string, string> { { "path1", "path1/path1" } },                              // Source Directories
+            new Dictionary<string, string> { { "path1", "path1/path1" }, { "path2", "path2/path2" } }   // Destination Directories
         );
 
         // Act
-        var result = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var result = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.Contains("path2", result.Value.DirectoriesToDelete);
@@ -39,25 +39,25 @@ public class FileComparerServiceTests
 
     [Test]
     // Test to ensure directories that exist in the destination but not in the source are marked for deletion.
-    public void DetermineDirectoriesToCreateMD5_ShouldMarkMissingDestDirectoriesForCreation()
+    public async Task DetermineDirectoriesToCreateMD5_ShouldMarkMissingDestDirectoriesForCreation()
     {
         // Arrange
         var fileSet = new MD5FileSet(
-            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),  // Source Files
-            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),  // Destination Files
-            new Dictionary<string, string> { { "path1", "path1/path1" }, { "path2", "path2/path2" } }, // Source Directories
-            new Dictionary<string, string> { { "path1", "path1/path1" } } // Destination Directories
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),                                     // Source Files
+            Enumerable.Empty<FileModel>().ToLookup(f => f.MD5Hash),                                     // Destination Files
+            new Dictionary<string, string> { { "path1", "path1/path1" }, { "path2", "path2/path2" } },  // Source Directories
+            new Dictionary<string, string> { { "path1", "path1/path1" } }                               // Destination Directories
         );
 
         // Act
-        var result = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var result = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.Contains("path2", result.Value.DirectoriesToCreate);
     }
 
     [Test]
-    public void DetermineFilesToDeleteMD5_WhenHashExistsInDestinationButNotInSource_ShouldReturnFilesForDeletion()
+    public async Task DetermineFilesToDeleteMD5_WhenHashExistsInDestinationButNotInSource_ShouldReturnFilesForDeletion()
     {
         // Arrange
 
@@ -74,14 +74,14 @@ public class FileComparerServiceTests
         };
 
         var fileSet = new MD5FileSet(
-            new[] { destinationFile1, }.ToLookup(f => f.MD5Hash),  // Source Files
-            new[] { destinationFile, destinationFile1 }.ToLookup(f => f.MD5Hash),      // Destination Files
-            new Dictionary<string, string>(), // Source Directories
-            new Dictionary<string, string>()  // Destination Directories
+            new[] { destinationFile1, }.ToLookup(f => f.MD5Hash),                       // Source Files
+            new[] { destinationFile, destinationFile1 }.ToLookup(f => f.MD5Hash),       // Destination Files
+            new Dictionary<string, string>(),                                           // Source Directories
+            new Dictionary<string, string>()                                            // Destination Directories
         );
 
         // Act
-        var filesToDelete = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToDelete = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsTrue(filesToDelete.Value.FilesToDelete.Contains(destinationFile.FileReletivePath));
@@ -89,7 +89,7 @@ public class FileComparerServiceTests
     }
 
     [Test]
-    public void DetermineFilesToCopyMD5_ShouldMarkMissingDestFilesForCopying()
+    public async Task DetermineFilesToCopyMD5_ShouldMarkMissingDestFilesForCopying()
     {
         // Arrange
         var sourceFile = new FileModel
@@ -105,21 +105,21 @@ public class FileComparerServiceTests
         };
 
         var fileSet = new MD5FileSet(
-            new[] { sourceFile, sourceFile1 }.ToLookup(f => f.MD5Hash),  // Source Files
-            new[] { sourceFile1 }.ToLookup(f => f.MD5Hash),             // Destination Files
-            new Dictionary<string, string>(), // Source Directories
-            new Dictionary<string, string>()  // Destination Directories
+            new[] { sourceFile, sourceFile1 }.ToLookup(f => f.MD5Hash),     // Source Files
+            new[] { sourceFile1 }.ToLookup(f => f.MD5Hash),                 // Destination Files
+            new Dictionary<string, string>(),                               // Source Directories
+            new Dictionary<string, string>()                                // Destination Directories
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsTrue(filesToSync.Value.FilesToCopy.Contains(sourceFile.FileReletivePath));
     }
 
     [Test]
-    public void DetermineFilesToMoveMD5_ShouldMarkFilesForMovementBasedOnPath()
+    public async Task DetermineFilesToMoveMD5_ShouldMarkFilesForMovementBasedOnPath()
     {
         // Arrange
         var sourceFile = new FileModel
@@ -142,7 +142,7 @@ public class FileComparerServiceTests
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         var moveTuple = (destFile.FileReletivePath, sourceFile.FileReletivePath);
@@ -150,7 +150,7 @@ public class FileComparerServiceTests
     }
 
     [Test]
-    public void DetermineFilesToCopyMD5_WhenMoreDuplicateSourceFilesThanDest_ShouldMarkExtraSourceFilesForCopying()
+    public async Task DetermineFilesToCopyMD5_WhenMoreDuplicateSourceFilesThanDest_ShouldMarkExtraSourceFilesForCopying()
     {
         // Arrange
         var sourceFile = new FileModel
@@ -174,19 +174,19 @@ public class FileComparerServiceTests
         var fileSet = new MD5FileSet(
             new[] { sourceFile, sourceFileDuplicate }.ToLookup(f => f.MD5Hash),   // Source Files
             new[] { destFile }.ToLookup(f => f.MD5Hash),                          // Destination Files
-            new Dictionary<string, string>(),                                    // Source Directories
+            new Dictionary<string, string>(),                                     // Source Directories
             new Dictionary<string, string>()                                      // Destination Directories
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsTrue(filesToSync.Value.FilesToCopy.Contains(sourceFileDuplicate.FileReletivePath));
     }
 
     [Test]
-    public void DetermineFilesToDeleteMD5_WhenMoreDuplicateDestFilesThanSource_ShouldMarkExtraDestFilesForDeletion()
+    public async Task DetermineFilesToDeleteMD5_WhenMoreDuplicateDestFilesThanSource_ShouldMarkExtraDestFilesForDeletion()
     {
         // Arrange
         var sourceFile = new FileModel
@@ -209,20 +209,20 @@ public class FileComparerServiceTests
 
         var fileSet = new MD5FileSet(
             new[] { sourceFile }.ToLookup(f => f.MD5Hash),                         // Source Files
-            new[] { destFile, destFileDuplicate }.ToLookup(f => f.MD5Hash),       // Destination Files
-            new Dictionary<string, string>(),                                     // Source Directories
+            new[] { destFile, destFileDuplicate }.ToLookup(f => f.MD5Hash),        // Destination Files
+            new Dictionary<string, string>(),                                      // Source Directories
             new Dictionary<string, string>()                                       // Destination Directories
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFileDuplicate.FileReletivePath));
     }
 
     [Test]
-    public void DetermineSyncActionsByMD5_WhenSourceAndDestinationAreIdentical_ShouldReturnNoActions()
+    public async Task DetermineSyncActionsByMD5_WhenSourceAndDestinationAreIdentical_ShouldReturnNoActions()
     {
         // Arrange
         var file = new FileModel
@@ -239,7 +239,7 @@ public class FileComparerServiceTests
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsEmpty(filesToSync.Value.FilesToMove);
@@ -250,7 +250,7 @@ public class FileComparerServiceTests
     }
 
     [Test]
-    public void DetermineSyncActionsByMD5_WhenPathsAreSameButHashesDiffer_ShouldMarkFilesForCopyAndDeletion()
+    public async Task DetermineSyncActionsByMD5_WhenPathsAreSameButHashesDiffer_ShouldMarkFilesForCopyAndDeletion()
     {
         // Arrange
         var sourceFile = new FileModel
@@ -273,7 +273,7 @@ public class FileComparerServiceTests
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsTrue(filesToSync.Value.FilesToDelete.Contains(destFile.FileReletivePath));
@@ -281,7 +281,7 @@ public class FileComparerServiceTests
     }
 
     [Test]
-    public void DetermineSyncActionsByMD5_WhenSourceAndDestinationAreEmpty_ShouldReturnNoActions()
+    public async Task DetermineSyncActionsByMD5_WhenSourceAndDestinationAreEmpty_ShouldReturnNoActions()
     {
         // Arrange
         var fileSet = new MD5FileSet(
@@ -292,7 +292,7 @@ public class FileComparerServiceTests
         );
 
         // Act
-        var filesToSync = _service.GetFilesToSyncGroupedByMD5AndDirectoryPaths(fileSet);
+        var filesToSync = await _service.GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(fileSet);
 
         // Assert
         Assert.IsEmpty(filesToSync.Value.FilesToMove);

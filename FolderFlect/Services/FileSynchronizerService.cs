@@ -1,13 +1,14 @@
-﻿using FolderFlect.Config;
-using NLog;
-using FolderFlect.Models;
-using FolderFlect.Utilities;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using FolderFlect.Services;
-using FolderFlect.Services.IServices;
+﻿using FolderFlect.Commands;
+using FolderFlect.Commands.FileProcessor;
+using FolderFlect.Config;
 using FolderFlect.Extensions;
+using FolderFlect.Models;
+using FolderFlect.Services.IServices;
+using FolderFlect.Utilities;
+using MediatR;
+using NLog;
+
+namespace FolderFlect.Services;
 
 /// <summary>
 /// Service responsible for synchronizing files between a source path and a replica path based on their MD5 hashes.
@@ -19,15 +20,15 @@ public class FileSynchronizerService : IFileSynchronizerService
     private readonly ILogger _logger;
     private readonly string _sourcePath;
     private readonly string _replicaPath;
-    private readonly IFileProcessorService _fileProcessor;
+    private readonly IMediator _mediator;
 
-    public FileSynchronizerService(ILogger logger, CommandLineConfig appConfig, IFileProcessorService fileProcessorService)
+    public FileSynchronizerService(ILogger logger, CommandLineConfig appConfig, IFileProcessorService fileProcessorService, IMediator mediator)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sourcePath = !string.IsNullOrWhiteSpace(appConfig.SourcePath) ? appConfig.SourcePath : throw new ArgumentException("SourcePath cannot be null or empty.", nameof(appConfig.SourcePath));
         _replicaPath = !string.IsNullOrWhiteSpace(appConfig.ReplicaPath) ? appConfig.ReplicaPath : throw new ArgumentException("ReplicaPath cannot be null or empty.", nameof(appConfig.ReplicaPath));
-        _fileProcessor = fileProcessorService ?? throw new ArgumentNullException(nameof(fileProcessorService));
         _logger.Debug("FileSynchronizerService initialized with source and replica paths.");
+        _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
 
     }
 
@@ -38,36 +39,29 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="filesToSyncSet">Set of files to be synchronized.</param>
     /// <returns>The result of the synchronization process.</returns>
-    public Result SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet)
+    public async Task<Result> SyncFilesByMD5(FilesToSyncSetByMD5 filesToSyncSet)
     {
-        _logger.Debug("Starting SyncFilesByMD5...");
 
         List<OperationFileProcessorResult> results = new List<OperationFileProcessorResult>();
 
-        try
+        results.Add(await CreateDirectoriesAsync(filesToSyncSet.DirectoriesToCreate));
+        results.Add(await MoveFilesAsync(filesToSyncSet.FilesToMove));
+        results.Add(await CopyFilesToDestinationAsync(filesToSyncSet.FilesToCopy));
+        results.Add(await DeleteFilesFromDestinationAsync(filesToSyncSet.FilesToDelete));
+        results.Add(await DeleteDirectoriesAsync(filesToSyncSet.DirectoriesToDelete));
+
+
+        _logger.LogSyncResult(results);
+
+        if (AnyFailures(results))
         {
-            results.Add(CreateDirectories(filesToSyncSet.DirectoriesToCreate));
-            results.Add(MoveFiles(filesToSyncSet.FilesToMove));
-            results.Add(CopyFilesToDestination(filesToSyncSet.FilesToCopy));
-            results.Add(DeleteFilesFromDestination(filesToSyncSet.FilesToDelete));
-            results.Add(DeleteDirectories(filesToSyncSet.DirectoriesToDelete));
-
-            _logger.LogSyncResult(results);
-
-            if (AnyFailures(results))
-            {
-                _logger.Warn("File synchronization completed with issues.");
-                return Result.Success();
-            }
-
-            _logger.Debug("Successfully synced files by MD5.");
+            _logger.Warn("File synchronization completed with issues.");
             return Result.Success();
         }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Error occurred during file synchronization.");
-            return Result.Fail($"Error occurred during file synchronization: {ex.Message}");
-        }
+
+        _logger.Debug("Successfully synced files by MD5.");
+        return Result.Success();
+
     }
 
     /// <summary>
@@ -75,10 +69,10 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="pathsToDelete">Relative paths of files to delete.</param>
     /// <returns>The result of the delete operation.</returns>
-    private OperationFileProcessorResult DeleteFilesFromDestination(IEnumerable<string> pathsToDelete)
+    private async Task<OperationFileProcessorResult> DeleteFilesFromDestinationAsync(IEnumerable<string> pathsToDelete)
     {
         _logger.Debug("Starting deletion of files from destination...");
-        var deleteResult = _fileProcessor.DeleteFiles(FileSyncHelper.GetAbsolutePaths(pathsToDelete, _replicaPath));
+        var deleteResult = await _mediator.Send(new DeleteFilesCommand(FileSyncHelper.GetAbsolutePaths(pathsToDelete, _replicaPath)));
         return new OperationFileProcessorResult(deleteResult, "File Deletion");
     }
 
@@ -87,7 +81,7 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="pathsToCopy">Relative paths of files to copy.</param>
     /// <returns>The result of the copy operation.</returns>
-    private OperationFileProcessorResult CopyFilesToDestination(IEnumerable<string> pathsToCopy)
+    private async Task<OperationFileProcessorResult> CopyFilesToDestinationAsync(IEnumerable<string> pathsToCopy)
     {
         _logger.Debug("Starting copying files to destination...");
         var absolutePathsToCopy = new List<(string, string)>();
@@ -97,7 +91,7 @@ public class FileSynchronizerService : IFileSynchronizerService
             var destinationFilePath = Path.Combine(_replicaPath, relativePath);
             absolutePathsToCopy.Add((sourceFilePath, destinationFilePath));
         }
-        var copyResult = _fileProcessor.CopyFiles(absolutePathsToCopy);
+        var copyResult = await _mediator.Send(new CopyFilesCommand(absolutePathsToCopy));
         return new OperationFileProcessorResult(copyResult, "File Copying");
     }
 
@@ -106,10 +100,10 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="directoriesToDelete">List of directories to delete.</param>
     /// <returns>The result of the delete operation.</returns>
-    private OperationFileProcessorResult DeleteDirectories(List<string> directoriesToDelete)
+    private async Task<OperationFileProcessorResult> DeleteDirectoriesAsync(List<string> directoriesToDelete)
     {
         _logger.Debug("Starting deleting directories...");
-        var deleteDirResult = _fileProcessor.DeleteDirectories(FileSyncHelper.GetAbsolutePaths(directoriesToDelete, _replicaPath));
+        var deleteDirResult = await _mediator.Send(new DeleteDirectoriesCommand(FileSyncHelper.GetAbsolutePaths(directoriesToDelete, _replicaPath)));
         return new OperationFileProcessorResult(deleteDirResult, "Directory Deletion");
     }
 
@@ -118,10 +112,10 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="directoriesToCreate">List of directories to create.</param>
     /// <returns>The result of the directory creation operation.</returns>
-    private OperationFileProcessorResult CreateDirectories(List<string> directoriesToCreate)
+    private async Task<OperationFileProcessorResult> CreateDirectoriesAsync(List<string> directoriesToCreate)
     {
         _logger.Debug("Starting creating directories...");
-        var createDirResult = _fileProcessor.CreateDirectories(FileSyncHelper.GetAbsolutePaths(directoriesToCreate, _replicaPath));
+        var createDirResult = await _mediator.Send(new CreateDirectoriesCommand(FileSyncHelper.GetAbsolutePaths(directoriesToCreate, _replicaPath)));
         return new OperationFileProcessorResult(createDirResult, "Directory Creation");
     }
     /// <summary>
@@ -129,7 +123,7 @@ public class FileSynchronizerService : IFileSynchronizerService
     /// </summary>
     /// <param name="filesToMove">Pairs of initial and final paths for moving files.</param>
     /// <returns>The result of the move operation.</returns>
-    private OperationFileProcessorResult MoveFiles(List<(string, string)> filesToMove)
+    private async Task<OperationFileProcessorResult> MoveFilesAsync(List<(string, string)> filesToMove)
     {
         _logger.Debug("Starting moving files...");
         var absolutePathsToMove = new List<(string, string)>();
@@ -139,7 +133,7 @@ public class FileSynchronizerService : IFileSynchronizerService
             var destinationFilePath = Path.Combine(_replicaPath, finalPath);
             absolutePathsToMove.Add((sourceFilePath, destinationFilePath));
         }
-        var moveResult = _fileProcessor.MoveFiles(absolutePathsToMove);
+        var moveResult = await _mediator.Send(new MoveFilesCommand(absolutePathsToMove));
         return new OperationFileProcessorResult(moveResult, "File Moving");
     }
 

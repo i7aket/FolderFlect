@@ -5,6 +5,6 @@ namespace FolderFlect.Services.IServices
 {
     public interface IFileScannerService
     {
-        Result<MD5FileSet> RetrieveFilesGroupedByMD5AndDirectoryPaths();
+        Task<Result<MD5FileSet>> RetrieveFilesGroupedByMD5AndDirectoryPathsAsync();
     }
 }

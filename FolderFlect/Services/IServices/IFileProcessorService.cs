@@ -1,13 +1,13 @@
 ﻿using FolderFlect.Models;
 
-namespace FolderFlect.Services.IServices
+namespace FolderFlect.Services.IServices;
+
+public interface IFileProcessorService
 {
-    public interface IFileProcessorService
-    {
-        FileProcessorResult CopyFiles(List<(string SourcePath, string DestinationPath)> absolutePathsToCopy);
-        FileProcessorResult CreateDirectories(List<string> absolutePathsToCreate);
-        FileProcessorResult DeleteDirectories(List<string> absolutePathsToDelete);
-        FileProcessorResult DeleteFiles(List<string> absolutePathsToDelete);
-        FileProcessorResult MoveFiles(List<(string SourcePath, string DestinationPath)> absolutePathsToMove);
-    }
+    Task<FileProcessorResult> CopyFilesAsync(List<(string SourcePath, string DestinationPath)> absolutePathsToCopy);
+    Task<FileProcessorResult> CreateDirectoriesAsync(List<string> absolutePathsToCreate);
+    Task<FileProcessorResult> DeleteDirectoriesAsync(List<string> absolutePathsToDelete);
+    Task<FileProcessorResult> DeleteFilesAsync(List<string> absolutePathsToDelete);
+    Task<FileProcessorResult> MoveFilesAsync(List<(string SourcePath, string DestinationPath)> absolutePathsToMove);
 }
+

@@ -1,7 +1,8 @@
 ﻿using FolderFlect.Models;
 using FolderFlect.Utilities;
+namespace FolderFlect.Services.IServices;
 
 public interface IFileComparerService
 {
-    Result<FilesToSyncSetByMD5> GetFilesToSyncGroupedByMD5AndDirectoryPaths(MD5FileSet fileSet);
+    Task<Result<FilesToSyncSetByMD5>> GetFilesToSyncGroupedByMD5AndDirectoryPathsAsync(MD5FileSet fileSet);
 }
